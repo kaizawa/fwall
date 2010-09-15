@@ -1,0 +1,51 @@
+#!/bin/sh
+
+PATH=/usr/sbin:/bin
+
+interface=`ifconfig -a |egrep "^[a-z]" | cut -f1 -d : | grep -v lo0`
+
+case "$1" in
+start)
+
+        for i in $interface
+        do
+                ifconfig $i modinsert fwall@2
+
+                if [ $? -eq 0 ]; then
+                        echo "fwall module inserted to $i"
+                fi
+        done
+
+	;;
+
+stop)
+        for i in $interface
+        do
+                while [ `ifconfig $i modlist |grep -c fwall` -ne 0 ];
+                do
+                        ifconfig $i modremove fwall@2
+                done                
+        done
+
+	if [ $? -eq 0 ]; 
+	then
+		echo "fwall module removed from all interface"
+	fi
+
+        MODULEID=`modinfo | awk '/fwall/{ print $1 }'` 
+
+        if [ $MODULEID ];then
+        	modunload -i $MODULEID
+        fi
+
+        if [ $? -eq 0 ]; then
+                echo "fwall module successfully unloaded"
+        fi
+	;;
+
+*)
+	echo "Usage: $0 { start | stop }"
+	exit 1
+	;;
+esac
+exit 0
