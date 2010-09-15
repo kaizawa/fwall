@@ -1,21 +1,49 @@
+/*
+ * CDDL HEADER START
+ *
+ * The contents of this file are subject to the terms of the
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
+ *
+ * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+ * or http://www.opensolaris.org/os/licensing.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ *
+ * When distributing Covered Code, include this CDDL HEADER in each
+ * file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+ * If applicable, add the following below this CDDL HEADER, with the
+ * fields enclosed by brackets "[]" replaced with your own identifying
+ * information: Portions Copyright [yyyy] [name of copyright owner]
+ *
+ * CDDL HEADER END
+ */
+/*
+ * Copyright (c) 1986, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
+
+/*
+ * Copright (c) 2005-2010  Kazuyoshi Aizawa <admin2@whiteboard.ne.jp>
+ * All rights reserved.
+ */
 /*************************************************************
- * ´Ê°× packet ¥Õ¥£¥ë¥¿¡¼¤Î¥ë¡¼¥ë¥â¥¸¥å¡¼¥ë
+ * ç°¡æ˜“ packet ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã®ãƒ«ãƒ¼ãƒ«ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«
  * 
  * /usr/local/bin/gcc -D_KERNEL fwall_rule.c -c
  *
- * ÊÑ¹¹ÍúÎò
+ * å¤‰æ›´å±¥æ­´
  *   2005/03/09
- *     o ¥ë¡¼¥ë¤Ë´ØÏ¢¤¹¤ë¥Õ¥¡¥ó¥¯¥·¥ç¥ó¤òÆÈÎ©¤µ¤»¤¿
+ *     o ãƒ«ãƒ¼ãƒ«ã«é–¢é€£ã™ã‚‹ãƒ•ã‚¡ãƒ³ã‚¯ã‚·ãƒ§ãƒ³ã‚’ç‹¬ç«‹ã•ã›ãŸ
  *   2005/03/11
- *     o ¥Ñ¥±¥Ã¥ÈµñÈİ»ş¤Ë¥ë¡¼¥ëÈÖ¹æ¤È¡¢IP ¥¢¥É¥ì¥¹¤ò syslog ¤ËÉ½¼¨¤¹¤ë¤è¤¦¤Ë¤·¤¿¡£
- *     o ¥ë¡¼¥ë¤ÎÄÉ²Ã»ş¤Ë¥İ¡¼¥ÈÈÖ¹æ¤È¡¢¥×¥í¥È¥³¥ë¤â syslog ¤ËÉ½¼¨¤¹¤ë¤è¤¦¤Ë¤·¤¿¡£
- *     o IP ¥Ø¥Ã¥À¤Î²òÀÏ»ş¤Ë IP ¥Ø¥Ã¥À¤Ø¤Î¥¢¥É¥ì¥¹¤¬ 4 ¥Ğ¥¤¥È¶­³¦¾å¤ËÌµ¤¤¤¿¤á¤Ë
- *        PANIC ¤¬È¯À¸(memory address not aligned)¤¹¤ëÌäÂê¤ò½¤Àµ¤¹¤ë¤¿¤á¡¢
- *       ¥Ç¡¼¥¿Éô¤ò°ìÅÙ¥³¥Ô¡¼¤·¤Æ¤«¤é¡¢¥³¥Ô¡¼¸å¤Î¥Ç¡¼¥¿¤òÄ´ºº¤¹¤ë¤è¤¦¤Ë¤·¤¿¡£
+ *     o ãƒ‘ã‚±ãƒƒãƒˆæ‹’å¦æ™‚ã«ãƒ«ãƒ¼ãƒ«ç•ªå·ã¨ã€IP ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’ syslog ã«è¡¨ç¤ºã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
+ *     o ãƒ«ãƒ¼ãƒ«ã®è¿½åŠ æ™‚ã«ãƒãƒ¼ãƒˆç•ªå·ã¨ã€ãƒ—ãƒ­ãƒˆã‚³ãƒ«ã‚‚ syslog ã«è¡¨ç¤ºã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
+ *     o IP ãƒ˜ãƒƒãƒ€ã®è§£ææ™‚ã« IP ãƒ˜ãƒƒãƒ€ã¸ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒ 4 ãƒã‚¤ãƒˆå¢ƒç•Œä¸Šã«ç„¡ã„ãŸã‚ã«
+ *        PANIC ãŒç™ºç”Ÿ(memory address not aligned)ã™ã‚‹å•é¡Œã‚’ä¿®æ­£ã™ã‚‹ãŸã‚ã€
+ *       ãƒ‡ãƒ¼ã‚¿éƒ¨ã‚’ä¸€åº¦ã‚³ãƒ”ãƒ¼ã—ã¦ã‹ã‚‰ã€ã‚³ãƒ”ãƒ¼å¾Œã®ãƒ‡ãƒ¼ã‚¿ã‚’èª¿æŸ»ã™ã‚‹ã‚ˆã†ã«ã—ãŸã€‚
  *
  **************************************************************/
 
-/* STREAM ÍÑ¥Ø¥Ã¥À */
+/* STREAM ç”¨ãƒ˜ãƒƒãƒ€ */
 #include <sys/modctl.h>
 #include <sys/types.h>
 #include <sys/param.h>
@@ -24,7 +52,7 @@
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
 
-/* TCP/IP ´ØÏ¢¥Ø¥Ã¥À */
+/* TCP/IP é–¢é€£ãƒ˜ãƒƒãƒ€ */
 #include  <netinet/in.h>
 #include  <sys/types.h>
 #include  <sys/socket.h>
@@ -38,13 +66,13 @@
 #include  <netinet/udp.h>
 #include  <netinet/ip.h>
 
-/* fwall ¥â¥¸¥å¡¼¥ëÍÑ¥Ø¥Ã¥À */
+/* fwall ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ç”¨ãƒ˜ãƒƒãƒ€ */
 #include "fwall.h"
 
-/* count ¤Ë¸½ºß¤ÎÁí¥ë¡¼¥ë¿ô¤¬Æş¤ë */
+/* count ã«ç¾åœ¨ã®ç·ãƒ«ãƒ¼ãƒ«æ•°ãŒå…¥ã‚‹ */
 #define RULES(count)  \
           for( rulep = rules_head, count = 0 ; rulep ; ++count, rulep = rulep->next_rule)
-/* rulep ¤Ë¸½ºß¤Î»ØÄê¤Î¥ë¡¼¥ëÈÖ¹æ¤Î¥ë¡¼¥ë¤Î¥İ¥¤¥ó¥¿¤¬Æş¤ë */
+/* rulep ã«ç¾åœ¨ã®æŒ‡å®šã®ãƒ«ãƒ¼ãƒ«ç•ªå·ã®ãƒ«ãƒ¼ãƒ«ã®ãƒã‚¤ãƒ³ã‚¿ãŒå…¥ã‚‹ */
 #define WALKRULE(rulep, number) \
           for( rulep = rules_head ; rulep && number ; --number, rulep = rulep->next_rule)
 #define COMPARE_ADDR(address_1, address_2)  \
@@ -56,8 +84,8 @@
 char *action_string[] = { "ALLOW", "REJECT", "DENY" };
 
 /*
- * ¥â¥¸¥å¡¼¥ë¤Î¥°¥í¡¼¥Ğ¥ë¥Ç¡¼¥¿ ºÇ½é¤Î¥ë¡¼¥ë¤Ø¤Î¥İ¥¤¥ó¥¿¤ò³ÊÇ¼
- * ¤³¤Î¥Ç¡¼¥¿¤Î½ñ¤­¹ş¤ß¤ÏÇÓÂ¾Åª¤Ë¹Ô¤ï¤ì¤Ê¤±¤ì¤Ğ¤Ê¤é¤Ê¤¤
+ * ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã®ã‚°ãƒ­ãƒ¼ãƒãƒ«ãƒ‡ãƒ¼ã‚¿ æœ€åˆã®ãƒ«ãƒ¼ãƒ«ã¸ã®ãƒã‚¤ãƒ³ã‚¿ã‚’æ ¼ç´
+ * ã“ã®ãƒ‡ãƒ¼ã‚¿ã®æ›¸ãè¾¼ã¿ã¯æ’ä»–çš„ã«è¡Œã‚ã‚Œãªã‘ã‚Œã°ãªã‚‰ãªã„
  */
 fwall_rule_t *rules_head = NULL;
 
@@ -71,34 +99,34 @@ extern void  debug_print(int , char *, ...);
 
 /*****************************************************************************
  * fwall_insert_rule()
- * ¥ë¡¼¥ë¤òÄÉ²Ã¤¹¤ë¡£¥â¥¸¥å¡¼¥ë¤Î¥°¥í¡¼¥Ğ¥ë¥Ç¡¼¥¿¤òÊÑ¹¹¤¹¤ë¤³¤È¤Ë¤Ê¤ë¡£
- * ¥°¥í¡¼¥Ğ¥ë¥Ç¡¼¥¿¤òÊÑ¹¹¤¹¤ë¤¿¤á¤Ë¤Ï¡¢ÇÓÂ¾¥â¡¼¥É¤Ç¤Ê¤¯¤Æ¤Ï ¤Ê¤é¤Ê¤¤¤Î¤Ç¡¢
- * ¤³¤Î¥ë¡¼¥Á¥ó¤ÏÉ¬¤º qwriter() ¤«¤é¸Æ¤Ğ¤ì¤ë¡£
+ * ãƒ«ãƒ¼ãƒ«ã‚’è¿½åŠ ã™ã‚‹ã€‚ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã®ã‚°ãƒ­ãƒ¼ãƒãƒ«ãƒ‡ãƒ¼ã‚¿ã‚’å¤‰æ›´ã™ã‚‹ã“ã¨ã«ãªã‚‹ã€‚
+ * ã‚°ãƒ­ãƒ¼ãƒãƒ«ãƒ‡ãƒ¼ã‚¿ã‚’å¤‰æ›´ã™ã‚‹ãŸã‚ã«ã¯ã€æ’ä»–ãƒ¢ãƒ¼ãƒ‰ã§ãªãã¦ã¯ ãªã‚‰ãªã„ã®ã§ã€
+ * ã“ã®ãƒ«ãƒ¼ãƒãƒ³ã¯å¿…ãš qwriter() ã‹ã‚‰å‘¼ã°ã‚Œã‚‹ã€‚
  *
- *  °ú¿ô¡§
- *           q:  queue ¹½Â¤ÂÎ¤Î¥İ¥¤¥ó¥¿
- *          mp:  message block ¤Î¥İ¥¤¥ó¥¿
- * Ìá¤êÃÍ¡§
- *           ¤Ê¤·¡£
+ *  å¼•æ•°ï¼š
+ *           q:  queue æ§‹é€ ä½“ã®ãƒã‚¤ãƒ³ã‚¿
+ *          mp:  message block ã®ãƒã‚¤ãƒ³ã‚¿
+ * æˆ»ã‚Šå€¤ï¼š
+ *           ãªã—ã€‚
  *****************************************************************************/
 void 
 fwall_insert_rule(queue_t *q, mblk_t *mp)
 {
-    fwall_rule_t   *new;          /* ¿·µ¬¤Ë allocate ¤¹¤ë¥ë¡¼¥ë   */
-    fwall_rule_t   *user_rule;    /* fwalladm ¤«¤éÆÏ¤¤¤¿¥ë¡¼¥ë    */
-    fwall_rule_t   *rulep;        /* ½èÍıÍÑ¤Î¥İ¥¤¥ó¥¿             */
-    uint32_t       rule_number;   /* Í×µá¤µ¤ì¤¿ÄÉ²Ã¤¹¤ë¥ë¡¼¥ëÈÖ¹æ */
-    uint32_t       total_rules;   /* ¸½ºß¤ÎÁí¥ë¡¼¥ë¿ô             */
+    fwall_rule_t   *new;          /* æ–°è¦ã« allocate ã™ã‚‹ãƒ«ãƒ¼ãƒ«   */
+    fwall_rule_t   *user_rule;    /* fwalladm ã‹ã‚‰å±Šã„ãŸãƒ«ãƒ¼ãƒ«    */
+    fwall_rule_t   *rulep;        /* å‡¦ç†ç”¨ã®ãƒã‚¤ãƒ³ã‚¿             */
+    uint32_t       rule_number;   /* è¦æ±‚ã•ã‚ŒãŸè¿½åŠ ã™ã‚‹ãƒ«ãƒ¼ãƒ«ç•ªå· */
+    uint32_t       total_rules;   /* ç¾åœ¨ã®ç·ãƒ«ãƒ¼ãƒ«æ•°             */
     struct iocblk *iocp;
     
-    /* b_cont ¤Ï fwalladm ¤«¤éÆÏ¤¤¤¿¥ë¡¼¥ë¤ò´Ş¤à M_DATA message ¤Ø¤Î¥İ¥¤¥ó¥¿¤Î¤Ï¤º*/
+    /* b_cont ã¯ fwalladm ã‹ã‚‰å±Šã„ãŸãƒ«ãƒ¼ãƒ«ã‚’å«ã‚€ M_DATA message ã¸ã®ãƒã‚¤ãƒ³ã‚¿ã®ã¯ãš*/
     user_rule = (fwall_rule_t *)mp->b_cont->b_rptr;
 
-    /* total_rules ¤Ë¸½ºß¤ÎÁí¥ë¡¼¥ë¿ô¤¬Æş¤ë */
+    /* total_rules ã«ç¾åœ¨ã®ç·ãƒ«ãƒ¼ãƒ«æ•°ãŒå…¥ã‚‹ */
     RULES(total_rules);    
 
-    /* IOCTL ¥³¥Ş¥ó¥É¤¬ ADDRULE(ÄÉ²Ã¡Ë¤Ê¤é°ìÈÖºÇ¸å¤Ë¡¢INSERTRULE¡ÊÁŞÆş¡Ë*/
-    /* ¤Ê¤é»ØÄê¤Î¥ë¡¼¥ëÈÖ¹æ¤Ë¥ë¡¼¥ë¤òÄÉ²Ã                               */
+    /* IOCTL ã‚³ãƒãƒ³ãƒ‰ãŒ ADDRULE(è¿½åŠ ï¼‰ãªã‚‰ä¸€ç•ªæœ€å¾Œã«ã€INSERTRULEï¼ˆæŒ¿å…¥ï¼‰*/
+    /* ãªã‚‰æŒ‡å®šã®ãƒ«ãƒ¼ãƒ«ç•ªå·ã«ãƒ«ãƒ¼ãƒ«ã‚’è¿½åŠ                                */
     iocp = (struct iocblk *)mp->b_rptr;
     switch (iocp->ioc_cmd) {
         case ADDRULE:
@@ -110,9 +138,9 @@ fwall_insert_rule(queue_t *q, mblk_t *mp)
     }
             
     /*---------------------------------------------*/
-    /* ¤â¤·¡¢°Ê²¼¤Î¾ò·ï¤Ë¤¢¤Ã¤¿¤é¥¨¥é¡¼            */
-    /* 1. ¥ë¡¼¥ë¤ÎºÇÂç¿ô¤ò±Û¤¨¤Æ¤¤¤ë               */
-    /* 2. ¸½ºß¤Î¥ë¡¼¥ë¿ô¤è¤êÂç¤­¤¤¥ë¡¼¥ëÈÖ¹æ¤ò»ØÄê */
+    /* ã‚‚ã—ã€ä»¥ä¸‹ã®æ¡ä»¶ã«ã‚ã£ãŸã‚‰ã‚¨ãƒ©ãƒ¼            */
+    /* 1. ãƒ«ãƒ¼ãƒ«ã®æœ€å¤§æ•°ã‚’è¶Šãˆã¦ã„ã‚‹               */
+    /* 2. ç¾åœ¨ã®ãƒ«ãƒ¼ãƒ«æ•°ã‚ˆã‚Šå¤§ãã„ãƒ«ãƒ¼ãƒ«ç•ªå·ã‚’æŒ‡å®š */
     /*---------------------------------------------*/ 
     if( total_rules >= MAXRULES || rule_number > total_rules ){
         mp->b_datap->db_type = M_IOCNAK;
@@ -122,27 +150,27 @@ fwall_insert_rule(queue_t *q, mblk_t *mp)
     }
     DEBUG_PRINT1(CE_CONT, "fwall_insert_rule: Number of rules = %u",total_rules);
     
-    /* fwalladm ¤«¤éÆÏ¤¤¤¿¥ë¡¼¥ë(user_rule)¤ò¿·¤·¤¯ allocate ¤·¤¿¥ë¡¼¥ë(new)¤Ë¥³¥Ô¡¼ */
+    /* fwalladm ã‹ã‚‰å±Šã„ãŸãƒ«ãƒ¼ãƒ«(user_rule)ã‚’æ–°ã—ã allocate ã—ãŸãƒ«ãƒ¼ãƒ«(new)ã«ã‚³ãƒ”ãƒ¼ */
     new = kmem_zalloc(sizeof(fwall_rule_t), KM_SLEEP);
     bcopy( user_rule, new , sizeof(fwall_rule_t));
     
     if(rules_head == NULL){
-        /* ¥ë¡¼¥ë¤¬¤Ş¤ÀÀßÄê¤µ¤ì¤Æ¤¤¤Ê¤¤¡£¿·¤·¤¤ ¥ë¡¼¥ë¤ò rule_head ¤È¤·¤ÆÀßÄê¤¹¤ë */
-        /* ºÇ½é¤Î¥ë¡¼¥ë¤Ê¤Î¤Ç¡¢fwalladm ¤«¤é¤­¤¿¥ë¡¼¥ëÈÖ¹æ¤ÏÌµ»ë¤·¤Æ£°ÈÖ¥ë¡¼¥ë¤È¤¹¤ë*/
+        /* ãƒ«ãƒ¼ãƒ«ãŒã¾ã è¨­å®šã•ã‚Œã¦ã„ãªã„ã€‚æ–°ã—ã„ ãƒ«ãƒ¼ãƒ«ã‚’ rule_head ã¨ã—ã¦è¨­å®šã™ã‚‹ */
+        /* æœ€åˆã®ãƒ«ãƒ¼ãƒ«ãªã®ã§ã€fwalladm ã‹ã‚‰ããŸãƒ«ãƒ¼ãƒ«ç•ªå·ã¯ç„¡è¦–ã—ã¦ï¼ç•ªãƒ«ãƒ¼ãƒ«ã¨ã™ã‚‹*/
         new->next_rule = NULL;        
         rules_head = new;
     } else if ( rule_number == 0){
-        /* rule_head ¤È¤·¤Æ´ûÂ¸¤Î¥ë¡¼¥ë£°¤ÎÁ°¤Ë¥ë¡¼¥ë¤òÄÉ²Ã */
+        /* rule_head ã¨ã—ã¦æ—¢å­˜ã®ãƒ«ãƒ¼ãƒ«ï¼ã®å‰ã«ãƒ«ãƒ¼ãƒ«ã‚’è¿½åŠ  */
         new->next_rule = rules_head;
         rules_head = new;
     } else {
-        /* ¥ë¡¼¥ë¤¬¤¹¤Ç¤ËÂ¸ºß¤¹¤ë¡£»ØÄê¤µ¤ì¤¿¥ë¡¼¥ëÈÖ¹æ¤Ë¡¢¿·¤·¤¤¥ë¡¼¥ë¤òÄÉ²Ã¤¹¤ë */
+        /* ãƒ«ãƒ¼ãƒ«ãŒã™ã§ã«å­˜åœ¨ã™ã‚‹ã€‚æŒ‡å®šã•ã‚ŒãŸãƒ«ãƒ¼ãƒ«ç•ªå·ã«ã€æ–°ã—ã„ãƒ«ãƒ¼ãƒ«ã‚’è¿½åŠ ã™ã‚‹ */
         rulep = rules_head;
 
-        /* »ØÄê¤µ¤ì¤¿¥ë¡¼¥ëÈÖ¹æ¤Î°ì¤ÄÁ°¤Î¥ë¡¼¥ë¤òÃµ¤¹*/
+        /* æŒ‡å®šã•ã‚ŒãŸãƒ«ãƒ¼ãƒ«ç•ªå·ã®ä¸€ã¤å‰ã®ãƒ«ãƒ¼ãƒ«ã‚’æ¢ã™*/
         WALKRULE(rulep, rule_number -1);
         
-        /* rule_number ÈÖÌÜ¤Î¥ë¡¼¥ë¤È¤·¤Æ¥ê¥ó¥¯¥ê¥¹¥È¤ÎÃæ¤ËÄÉ²Ã */
+        /* rule_number ç•ªç›®ã®ãƒ«ãƒ¼ãƒ«ã¨ã—ã¦ãƒªãƒ³ã‚¯ãƒªã‚¹ãƒˆã®ä¸­ã«è¿½åŠ  */
         new->next_rule = rulep->next_rule;
         rulep->next_rule = new;
     }
@@ -156,34 +184,34 @@ fwall_insert_rule(queue_t *q, mblk_t *mp)
 
 /******************************************************************************
  * fwall_delete_rule()
- * fwalladm ¥³¥Ş¥ó¥É¤«¤é¤Î¥ë¡¼¥ë¤Îºï½üÍ×µá¤ò½èÍı¤¹¤ë
+ * fwalladm ã‚³ãƒãƒ³ãƒ‰ã‹ã‚‰ã®ãƒ«ãƒ¼ãƒ«ã®å‰Šé™¤è¦æ±‚ã‚’å‡¦ç†ã™ã‚‹
  *
- *  °ú¿ô¡§
- *          q :  queue ¹½Â¤ÂÎ¤Î¥İ¥¤¥ó¥¿
- *          mp:  message block ¤Î¥İ¥¤¥ó¥¿
+ *  å¼•æ•°ï¼š
+ *          q :  queue æ§‹é€ ä½“ã®ãƒã‚¤ãƒ³ã‚¿
+ *          mp:  message block ã®ãƒã‚¤ãƒ³ã‚¿
  *
- * Ìá¤êÃÍ¡§
- *           ¤Ê¤·¡£
+ * æˆ»ã‚Šå€¤ï¼š
+ *           ãªã—ã€‚
  *****************************************************************************/ 
 void
 fwall_delete_rule(queue_t *q, mblk_t *mp)
 {
-    fwall_rule_t *rulep;         /* ½èÍıÍÑ¤Î¥İ¥¤¥ó¥¿             */
-    fwall_rule_t *delp;          /* ºï½ü¤¹¤ë¥ë¡¼¥ë               */
-    uint32_t      rule_number;   /* Í×µá¤µ¤ì¤¿ºï½ü¤¹¤ë¥ë¡¼¥ëÈÖ¹æ */
-    uint32_t      total_rules;   /* ¸½ºß¤ÎÁí¥ë¡¼¥ë¿ô             */    
+    fwall_rule_t *rulep;         /* å‡¦ç†ç”¨ã®ãƒã‚¤ãƒ³ã‚¿             */
+    fwall_rule_t *delp;          /* å‰Šé™¤ã™ã‚‹ãƒ«ãƒ¼ãƒ«               */
+    uint32_t      rule_number;   /* è¦æ±‚ã•ã‚ŒãŸå‰Šé™¤ã™ã‚‹ãƒ«ãƒ¼ãƒ«ç•ªå· */
+    uint32_t      total_rules;   /* ç¾åœ¨ã®ç·ãƒ«ãƒ¼ãƒ«æ•°             */    
 
-    /* b_cont ¤Ç¥İ¥¤¥ó¥È¤µ¤ì¤Æ¤¤¤ë message ¤Î read ¥İ¥¤¥ó¥¿¡¼¤Ïºï½ü¤¹¤ë¥ë¡¼¥ëÈÖ¹æ¤Î¤Ï¤º */
+    /* b_cont ã§ãƒã‚¤ãƒ³ãƒˆã•ã‚Œã¦ã„ã‚‹ message ã® read ãƒã‚¤ãƒ³ã‚¿ãƒ¼ã¯å‰Šé™¤ã™ã‚‹ãƒ«ãƒ¼ãƒ«ç•ªå·ã®ã¯ãš */
     rule_number = *(uint32_t *)mp->b_cont->b_rptr;
     
-    /* total_rules ¤Ë¸½ºß¤ÎÁí¥ë¡¼¥ë¿ô¤¬Æş¤ë */
+    /* total_rules ã«ç¾åœ¨ã®ç·ãƒ«ãƒ¼ãƒ«æ•°ãŒå…¥ã‚‹ */
     RULES(total_rules);
     
     /*----------------------------------------------------------*/    
-    /* ¤â¤·¡¢°Ê²¼¤Î¾ò·ï¤Ë¥Ş¥Ã¥Á¤·¤¿¤é¥¨¥é¡¼                     */
-    /* 1.¥ë¡¼¥ë¤ÎºÇÂç¿ô¤ò±Û¤¨¤Æ¤¤¤ë                             */
-    /* 2.¸½ºß¤Î¥ë¡¼¥ë¿ô -1 ¤è¤êÂç¤­¤¤¥ë¡¼¥ëÈÖ¹æ¤¬»ØÄê¤µ¤ì¤Æ¤¤¤ë */
-    /* 3.¸½ºß¥ë¡¼¥ë¤¬°ì¤Ä¤âÀßÄê¤µ¤ì¤Æ¤¤¤Ê¤¤                     */
+    /* ã‚‚ã—ã€ä»¥ä¸‹ã®æ¡ä»¶ã«ãƒãƒƒãƒã—ãŸã‚‰ã‚¨ãƒ©ãƒ¼                     */
+    /* 1.ãƒ«ãƒ¼ãƒ«ã®æœ€å¤§æ•°ã‚’è¶Šãˆã¦ã„ã‚‹                             */
+    /* 2.ç¾åœ¨ã®ãƒ«ãƒ¼ãƒ«æ•° -1 ã‚ˆã‚Šå¤§ãã„ãƒ«ãƒ¼ãƒ«ç•ªå·ãŒæŒ‡å®šã•ã‚Œã¦ã„ã‚‹ */
+    /* 3.ç¾åœ¨ãƒ«ãƒ¼ãƒ«ãŒä¸€ã¤ã‚‚è¨­å®šã•ã‚Œã¦ã„ãªã„                     */
     /*----------------------------------------------------------*/    
     if( total_rules >= MAXRULES || total_rules == 0 || rule_number > total_rules -1 ){
         mp->b_datap->db_type = M_IOCNAK;
@@ -193,8 +221,8 @@ fwall_delete_rule(queue_t *q, mblk_t *mp)
     }
     
     if( rule_number == 0){
-        /* ºÇ½é¤Î¥ë¡¼¥ë(=rules_head)¤Îºï½üÍ×µá                        */
-        /* ¥ê¥ó¥¯¥ê¥¹¥È¤Î¥ê¥ó¥¯¤òÄ¥¤ê¤Ê¤ª¤·¡¢¤½¤Î¸å¥ë¡¼¥ë¤ò free ¤¹¤ë */        
+        /* æœ€åˆã®ãƒ«ãƒ¼ãƒ«(=rules_head)ã®å‰Šé™¤è¦æ±‚                        */
+        /* ãƒªãƒ³ã‚¯ãƒªã‚¹ãƒˆã®ãƒªãƒ³ã‚¯ã‚’å¼µã‚ŠãªãŠã—ã€ãã®å¾Œãƒ«ãƒ¼ãƒ«ã‚’ free ã™ã‚‹ */        
         rulep = rules_head;
         rules_head = rules_head->next_rule;
         kmem_free(rulep, sizeof(fwall_rule_t));
@@ -204,19 +232,19 @@ fwall_delete_rule(queue_t *q, mblk_t *mp)
         return;
     } else if( rule_number > 0){
         rulep = rules_head;
-        /* ºï½ü¤¹¤ë°ì¤ÄÁ°¤Î¥ë¡¼¥ë¤òÃµ¤¹*/
+        /* å‰Šé™¤ã™ã‚‹ä¸€ã¤å‰ã®ãƒ«ãƒ¼ãƒ«ã‚’æ¢ã™*/
         WALKRULE(rulep, rule_number -1);
 
-        /* ¤³¤Î»şÅÀ¤Ç rulep ¤Ïºï½ü¤¹¤ë°ì¤ÄÁ°¤Î¥ë¡¼¥ë¤Î¤Ï¤º*/
+        /* ã“ã®æ™‚ç‚¹ã§ rulep ã¯å‰Šé™¤ã™ã‚‹ä¸€ã¤å‰ã®ãƒ«ãƒ¼ãƒ«ã®ã¯ãš*/
         if (rulep->next_rule == NULL){
-            /* ÆşÎÏ¤µ¤ì¤¿¥ë¡¼¥ëÈÖ¹æ¤ÏÌµ¤¤             */
-            /* M_IOCNAK(=ÈİÄê±şÅú) ¤òÊÖ¤·¡¢¥¨¥é¡¼É½¼¨ */            
+            /* å…¥åŠ›ã•ã‚ŒãŸãƒ«ãƒ¼ãƒ«ç•ªå·ã¯ç„¡ã„             */
+            /* M_IOCNAK(=å¦å®šå¿œç­”) ã‚’è¿”ã—ã€ã‚¨ãƒ©ãƒ¼è¡¨ç¤º */            
             mp->b_datap->db_type = M_IOCNAK;
             qreply(q, mp);
             cmn_err(CE_CONT, "Invalid rule number");                        
             return;
         }
-        /* ¥ê¥ó¥¯¥ê¥¹¥È¤Î¥ê¥ó¥¯¤òÄ¥¤ê¤Ê¤ª¤·¡¢¤½¤Î¸å¥ë¡¼¥ë¤ò free ¤¹¤ë */
+        /* ãƒªãƒ³ã‚¯ãƒªã‚¹ãƒˆã®ãƒªãƒ³ã‚¯ã‚’å¼µã‚ŠãªãŠã—ã€ãã®å¾Œãƒ«ãƒ¼ãƒ«ã‚’ free ã™ã‚‹ */
         delp = rulep->next_rule;
         rulep->next_rule = delp->next_rule;
         kmem_free(delp,sizeof(fwall_rule_t));
@@ -226,8 +254,8 @@ fwall_delete_rule(queue_t *q, mblk_t *mp)
         return;
         
     } else {
-        /* ÆşÎÏ¤µ¤ì¤¿¥ë¡¼¥ëÈÖ¹æ¤ÏÌµ¤¤             */
-        /* M_IOCNAK(=ÈİÄê±şÅú) ¤òÊÖ¤·¡¢¥¨¥é¡¼É½¼¨ */        
+        /* å…¥åŠ›ã•ã‚ŒãŸãƒ«ãƒ¼ãƒ«ç•ªå·ã¯ç„¡ã„             */
+        /* M_IOCNAK(=å¦å®šå¿œç­”) ã‚’è¿”ã—ã€ã‚¨ãƒ©ãƒ¼è¡¨ç¤º */        
         mp->b_datap->db_type = M_IOCNAK;
         qreply(q, mp);
         cmn_err(CE_CONT, "Invalid rule number");                                    
@@ -237,37 +265,37 @@ fwall_delete_rule(queue_t *q, mblk_t *mp)
 
 /******************************************************************************
  * fwall_get_rule()
- * »ØÄê¤µ¤ì¤¿ÈÖ¹æ¤Î¥ë¡¼¥ë¤òÃµ¤·¡¢ÊÖÅú¤¹¤ë
+ * æŒ‡å®šã•ã‚ŒãŸç•ªå·ã®ãƒ«ãƒ¼ãƒ«ã‚’æ¢ã—ã€è¿”ç­”ã™ã‚‹
  *
- *  °ú¿ô¡§
- *          q :  queue ¹½Â¤ÂÎ¤Î¥İ¥¤¥ó¥¿
- *          mp:  message block ¤Î¥İ¥¤¥ó¥¿
+ *  å¼•æ•°ï¼š
+ *          q :  queue æ§‹é€ ä½“ã®ãƒã‚¤ãƒ³ã‚¿
+ *          mp:  message block ã®ãƒã‚¤ãƒ³ã‚¿
  *
- * Ìá¤êÃÍ¡§
- *           ¤Ê¤·¡£
+ * æˆ»ã‚Šå€¤ï¼š
+ *           ãªã—ã€‚
  *******************************************************************************/
 void
 fwall_get_rule(queue_t *q, mblk_t *mp)
 {
-    fwall_rule_t  *user_rule;    /* fwalladm ¤«¤éÆÏ¤¤¤¿¥ë¡¼¥ë*/
-    fwall_rule_t  *rulep;        /* ½èÍıÍÑ¤Î¥İ¥¤¥ó¥¿         */
-    uint32_t      rule_number;   /* ¥ë¡¼¥ëÈÖ¹æ               */
+    fwall_rule_t  *user_rule;    /* fwalladm ã‹ã‚‰å±Šã„ãŸãƒ«ãƒ¼ãƒ«*/
+    fwall_rule_t  *rulep;        /* å‡¦ç†ç”¨ã®ãƒã‚¤ãƒ³ã‚¿         */
+    uint32_t      rule_number;   /* ãƒ«ãƒ¼ãƒ«ç•ªå·               */
 
     user_rule = (fwall_rule_t *)mp->b_cont->b_rptr;
     rule_number = user_rule->number;
     if(rules_head == NULL){
-        /* ¥ë¡¼¥ë¤Ï¤Ş¤À°ì¤Ä¤âÀßÄê¤µ¤ì¤Æ¤¤¤Ê¤¤!!
-         * M_IOCNAK(=ÈİÄê±şÅú) ¤òÊÖ¤¹*/
+        /* ãƒ«ãƒ¼ãƒ«ã¯ã¾ã ä¸€ã¤ã‚‚è¨­å®šã•ã‚Œã¦ã„ãªã„!!
+         * M_IOCNAK(=å¦å®šå¿œç­”) ã‚’è¿”ã™*/
         mp->b_datap->db_type = M_IOCNAK;
         qreply(q, mp);
         return;
     }    
     rulep = rules_head;
     while(rule_number){
-        /* rule_number ÈÖÌÜ¤Î¥ë¡¼¥ë¤òÃµ¤¹*/
+        /* rule_number ç•ªç›®ã®ãƒ«ãƒ¼ãƒ«ã‚’æ¢ã™*/
         if(rulep->next_rule == NULL){
-            /* ÆşÎÏ¤µ¤ì¤¿¥ë¡¼¥ëÈÖ¹æ¤ÏÌµ¤¤
-             * M_IOCNAK(=ÈİÄê±şÅú) ¤òÊÖ¤¹ */
+            /* å…¥åŠ›ã•ã‚ŒãŸãƒ«ãƒ¼ãƒ«ç•ªå·ã¯ç„¡ã„
+             * M_IOCNAK(=å¦å®šå¿œç­”) ã‚’è¿”ã™ */
             mp->b_datap->db_type = M_IOCNAK;
             qreply(q, mp);
             return;                
@@ -275,10 +303,10 @@ fwall_get_rule(queue_t *q, mblk_t *mp)
         rulep = rulep->next_rule;
         rule_number--;            
     }
-    /* ¤³¤Î»şÅÀ¤Ç rulep ¤Ë n ÈÖÌÜ¤Î¥ë¡¼¥ë¤¬Æş¤ë¡£
-     * ¤½¤ì¤ò user_rule¡¢¤Ä¤Ş¤ê M_IOCTL message
-     * ¤Î b_cont ¤Ç·Ò¤¬¤Ã¤¿ M_DATA message ¤Ë¥³¥Ô¡¼
-     * ¤·¤Æfwalladm ¥³¥Ş¥ó¥É¤ËÊÖ¿®¤·¤Æ¤ä¤ë*/
+    /* ã“ã®æ™‚ç‚¹ã§ rulep ã« n ç•ªç›®ã®ãƒ«ãƒ¼ãƒ«ãŒå…¥ã‚‹ã€‚
+     * ãã‚Œã‚’ user_ruleã€ã¤ã¾ã‚Š M_IOCTL message
+     * ã® b_cont ã§ç¹‹ãŒã£ãŸ M_DATA message ã«ã‚³ãƒ”ãƒ¼
+     * ã—ã¦fwalladm ã‚³ãƒãƒ³ãƒ‰ã«è¿”ä¿¡ã—ã¦ã‚„ã‚‹*/
     bcopy(rulep, user_rule, sizeof(fwall_rule_t));
     mp->b_datap->db_type = M_IOCACK;
     qreply(q, mp);    
@@ -288,29 +316,29 @@ fwall_get_rule(queue_t *q, mblk_t *mp)
 /******************************************************************************
  * fwall_check_rule_ip
  * 
- * °ú¿ô¤È¤·¤ÆÅÏ¤µ¤ì¤¿ IP ¥Ø¥Ã¥À¤Ø¤Î¥İ¥¤¥ó¥¿¤¬¥ë¡¼¥ë¤Ë¥Ş¥Ã¥Á¤¹¤ë¤«¤ò¥Á¥§¥Ã¥¯
+ * å¼•æ•°ã¨ã—ã¦æ¸¡ã•ã‚ŒãŸ IP ãƒ˜ãƒƒãƒ€ã¸ã®ãƒã‚¤ãƒ³ã‚¿ãŒãƒ«ãƒ¼ãƒ«ã«ãƒãƒƒãƒã™ã‚‹ã‹ã‚’ãƒã‚§ãƒƒã‚¯
  *
- *  °ú¿ô¡§
- *          ip :  ip ¥Ø¥Ã¥À¤Ø¤Î¥İ¥¤¥ó¥¿
+ *  å¼•æ•°ï¼š
+ *          ip :  ip ãƒ˜ãƒƒãƒ€ã¸ã®ãƒã‚¤ãƒ³ã‚¿
  *
- * Ìá¤êÃÍ¡§
- *          Å¾Á÷µö²Ä¤Î¾ì¹ç   : 0
- *          Å¾Á÷ÉÔµö²Ä¤Î¾ì¹ç : -1
+ * æˆ»ã‚Šå€¤ï¼š
+ *          è»¢é€è¨±å¯ã®å ´åˆ   : 0
+ *          è»¢é€ä¸è¨±å¯ã®å ´åˆ : -1
  *******************************************************************************/
 int
 fwall_check_rule_ip(struct ip *orgip, int len)
 {
-    struct tcphdr *tcphdr;             /* TCP ¥Ø¥Ã¥À¹½Â¤ÂÎ         */
-    struct udphdr *udphdr;             /* UDP ¥Ø¥Ã¥À¹½Â¤ÂÎ         */
-    fwall_rule_t  *rulep;              /* ½èÍıÍÑ¤Î¥ë¡¼¥ë¤Î¥İ¥¤¥ó¥¿ */
-    uint16_t      src_port, dst_port;  /* Á÷¿®¸µ¡¢¤¢¤ÆÀè¥İ¡¼¥È     */
+    struct tcphdr *tcphdr;             /* TCP ãƒ˜ãƒƒãƒ€æ§‹é€ ä½“         */
+    struct udphdr *udphdr;             /* UDP ãƒ˜ãƒƒãƒ€æ§‹é€ ä½“         */
+    fwall_rule_t  *rulep;              /* å‡¦ç†ç”¨ã®ãƒ«ãƒ¼ãƒ«ã®ãƒã‚¤ãƒ³ã‚¿ */
+    uint16_t      src_port, dst_port;  /* é€ä¿¡å…ƒã€ã‚ã¦å…ˆãƒãƒ¼ãƒˆ     */
     uint8_t       proto;
     struct ip     *ip;
-    uint32_t      rule_number;   /* ¥ë¡¼¥ëÈÖ¹æ */
+    uint32_t      rule_number;   /* ãƒ«ãƒ¼ãƒ«ç•ªå· */
 
     /*
-     * ¥¢¥é¥¤¥ó¥á¥ó¥È¤ÎÌäÂê¤¬¤¢¤ë¤Î¤Ç¡¢Ä´ººÍÑ¤Î buffer ¤òÍÑ°Õ¤·¤Æ¡¢¤½¤Á¤é¤Ë IP ¤Î¥Ç¡¼¥¿
-     * ¤ò¥³¥Ô¡¼¤·¤Æ¤«¤éÄ´ºº¤ò¹Ô¤¦¤³¤È¤Ë¤¹¤ë¡£
+     * ã‚¢ãƒ©ã‚¤ãƒ³ãƒ¡ãƒ³ãƒˆã®å•é¡ŒãŒã‚ã‚‹ã®ã§ã€èª¿æŸ»ç”¨ã® buffer ã‚’ç”¨æ„ã—ã¦ã€ãã¡ã‚‰ã« IP ã®ãƒ‡ãƒ¼ã‚¿
+     * ã‚’ã‚³ãƒ”ãƒ¼ã—ã¦ã‹ã‚‰èª¿æŸ»ã‚’è¡Œã†ã“ã¨ã«ã™ã‚‹ã€‚
      */
     ip = (struct ip *)kmem_zalloc(len , KM_NOSLEEP);
     if ( ip == NULL){
@@ -328,8 +356,8 @@ fwall_check_rule_ip(struct ip *orgip, int len)
 #endif
 
     /*
-     * ip_p ¤Ë¤Æ protocol ¤òÈ½Äê¤·¡¢TCP, UDP ¤Î¥İ¡¼¥È¤òÄ´¤Ù¤ë¡£
-     * TCP,UDP ¤É¤Á¤é¤Ç¤â¤Ê¤¤¾ì¹ç¤Ï 0 ¤òÆş¤ì¤Æ¤ª¤¯
+     * ip_p ã«ã¦ protocol ã‚’åˆ¤å®šã—ã€TCP, UDP ã®ãƒãƒ¼ãƒˆã‚’èª¿ã¹ã‚‹ã€‚
+     * TCP,UDP ã©ã¡ã‚‰ã§ã‚‚ãªã„å ´åˆã¯ 0 ã‚’å…¥ã‚Œã¦ãŠã
      */
     proto = ip->ip_p;
     switch(proto){
@@ -351,7 +379,7 @@ fwall_check_rule_ip(struct ip *orgip, int len)
     for (rulep = rules_head, rule_number = 0 ; rulep != NULL ; rulep = rulep->next_rule, rule_number++){
         switch(rulep->action){
             case ALLOW:
-                /* Á÷¿®¸µ¡¢È¯¿®¸µ¥¢¥É¥ì¥¹¤¬ ACCEPT ¥ë¡¼¥ë¤Î¥¢¥É¥ì¥¹¤Ë¥Ş¥Ã¥Á¤¹¤ë¤«Èæ³Ó */
+                /* é€ä¿¡å…ƒã€ç™ºä¿¡å…ƒã‚¢ãƒ‰ãƒ¬ã‚¹ãŒ ACCEPT ãƒ«ãƒ¼ãƒ«ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã«ãƒãƒƒãƒã™ã‚‹ã‹æ¯”è¼ƒ */
                 if(
                     (ip->ip_src.s_addr == rulep->src_addr.s_addr || rulep->src_addr.s_addr == INADDR_ANY)&&
                     (ip->ip_dst.s_addr == rulep->dst_addr.s_addr || rulep->dst_addr.s_addr == INADDR_ANY)&&
@@ -360,14 +388,14 @@ fwall_check_rule_ip(struct ip *orgip, int len)
                     (src_port == rulep->src_port || rulep->src_port == 0)
                     )
                     {
-                        /* ¥Ş¥Ã¥Á¤·¤¿¤é 0 ¤ò¥ê¥¿¡¼¥ó¡£putnext() ¤¹¤ë¤Î¤Ï¸Æ¤Ó½Ğ¤·¤¿´Ø¿ô¤ÎÀÕÇ¤ */
+                        /* ãƒãƒƒãƒã—ãŸã‚‰ 0 ã‚’ãƒªã‚¿ãƒ¼ãƒ³ã€‚putnext() ã™ã‚‹ã®ã¯å‘¼ã³å‡ºã—ãŸé–¢æ•°ã®è²¬ä»» */
                         kmem_free(ip, len);                                
                         return(ALLOW);                    
                     }                
             case REJECT:
-                /* Ì¤¼ÂÁõ¡£DENY ¤ÈÅù²Á¤Ë¤¹¤ë¡£*/
+                /* æœªå®Ÿè£…ã€‚DENY ã¨ç­‰ä¾¡ã«ã™ã‚‹ã€‚*/
             case DENY:
-                /* Á÷¿®¸µ¡¢È¯¿®¸µ¥¢¥É¥ì¥¹¤¬ DENY ¥ë¡¼¥ë¤Î¥¢¥É¥ì¥¹¤Ë¥Ş¥Ã¥Á¤¹¤ë¤«Èæ³Ó */
+                /* é€ä¿¡å…ƒã€ç™ºä¿¡å…ƒã‚¢ãƒ‰ãƒ¬ã‚¹ãŒ DENY ãƒ«ãƒ¼ãƒ«ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã«ãƒãƒƒãƒã™ã‚‹ã‹æ¯”è¼ƒ */
                 if(
                     (ip->ip_src.s_addr == rulep->src_addr.s_addr || rulep->src_addr.s_addr == INADDR_ANY)&&
                     (ip->ip_dst.s_addr == rulep->dst_addr.s_addr || rulep->dst_addr.s_addr == INADDR_ANY)&&
@@ -376,7 +404,7 @@ fwall_check_rule_ip(struct ip *orgip, int len)
                     (src_port == rulep->src_port || rulep->src_port == 0)
                     )
                     {
-                        /* ¥Ş¥Ã¥Á¤·¤¿¤é DENY(0x2) ¤ò¥ê¥¿¡¼¥ó¡£freemsg() ¤¹¤ë¤Î¤Ï¸Æ¤Ó½Ğ¤·¤¿´Ø¿ô¤ÎÀÕÇ¤ */
+                        /* ãƒãƒƒãƒã—ãŸã‚‰ DENY(0x2) ã‚’ãƒªã‚¿ãƒ¼ãƒ³ã€‚freemsg() ã™ã‚‹ã®ã¯å‘¼ã³å‡ºã—ãŸé–¢æ•°ã®è²¬ä»» */
                         cmn_err(CE_CONT,"Packet denied by rule %d: %d.%d.%d.%d -> %d.%d.%d.%d (ipid =%u)",
                                 rule_number,
                                 ip->ip_src.s_net, ip->ip_src.s_host, ip->ip_src.s_lh, ip->ip_src.s_impno,
@@ -390,10 +418,10 @@ fwall_check_rule_ip(struct ip *orgip, int len)
             default:
                 break;
         }
-    }/* for ½ªÎ» */
+    }/* for çµ‚äº† */
 
     /*
-     * ¤É¤Î¥ë¡¼¥ë¤Ë¤â¥Ş¥Ã¥Á¤·¤Ê¤«¤Ã¤¿¤Î¤Ç ALLOW ¤ò¥ê¥¿¡¼¥ó¡£
+     * ã©ã®ãƒ«ãƒ¼ãƒ«ã«ã‚‚ãƒãƒƒãƒã—ãªã‹ã£ãŸã®ã§ ALLOW ã‚’ãƒªã‚¿ãƒ¼ãƒ³ã€‚
      */
     kmem_free(ip, len);                            
     return(ALLOW);
@@ -402,14 +430,14 @@ fwall_check_rule_ip(struct ip *orgip, int len)
 /******************************************************************************
  * fwall_print_rule
  * 
- * °ú¿ô¤È¤·¤ÆÅÏ¤µ¤ì¤¿ ¥ë¡¼¥ë¤ò syslog ¤Ë½ĞÎÏ¤¹¤ë
- * ¡ÊÄÉ²Ã»şÀìÍÑ¡¦¡¦¤Ë¤·¤Æ¤·¤Ş¤Ã¤¿¡£Í×²şÁ±¡Ë
+ * å¼•æ•°ã¨ã—ã¦æ¸¡ã•ã‚ŒãŸ ãƒ«ãƒ¼ãƒ«ã‚’ syslog ã«å‡ºåŠ›ã™ã‚‹
+ * ï¼ˆè¿½åŠ æ™‚å°‚ç”¨ãƒ»ãƒ»ã«ã—ã¦ã—ã¾ã£ãŸã€‚è¦æ”¹å–„ï¼‰
  *
- *  °ú¿ô¡§
- *          rule :  ¥ë¡¼¥ë¤Ø¤Î¥İ¥¤¥ó¥¿
+ *  å¼•æ•°ï¼š
+ *          rule :  ãƒ«ãƒ¼ãƒ«ã¸ã®ãƒã‚¤ãƒ³ã‚¿
  *
- * Ìá¤êÃÍ¡§
- *          ¤Ê¤·
+ * æˆ»ã‚Šå€¤ï¼š
+ *          ãªã—
  *          
  *******************************************************************************/
 void

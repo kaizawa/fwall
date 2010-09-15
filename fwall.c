@@ -1,33 +1,61 @@
- /************************************************************* 
- * �ʰ� packet �ե��륿��
+/*
+ * CDDL HEADER START
+ *
+ * The contents of this file are subject to the terms of the
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
+ *
+ * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+ * or http://www.opensolaris.org/os/licensing.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ *
+ * When distributing Covered Code, include this CDDL HEADER in each
+ * file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+ * If applicable, add the following below this CDDL HEADER, with the
+ * fields enclosed by brackets "[]" replaced with your own identifying
+ * information: Portions Copyright [yyyy] [name of copyright owner]
+ *
+ * CDDL HEADER END
+ */
+/*
+ * Copyright (c) 1986, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
+
+/*
+ * Copright (c) 2005-2010  Kazuyoshi Aizawa <admin2@whiteboard.ne.jp>
+ * All rights reserved.
+ */
+/************************************************************* 
+ * 簡易 packet フィルター
  * 
  * /usr/local/bin/gcc -D_KERNEL fwall.c -c
  * ld -dn -r fwall.o fwall_check_rule.o -o fwall
  *
- * �ѹ�����
+ * 変更履歴
  *   2005/03/04
- *     o �����ץ󤷤Ƥ��ʤ� UDP �ݡ��Ȥ˥ѥ��åȤ����������
- *       PANIC ���Ƥ��ޤ����������
- *     o ���� message ��ʣ���� mblk ����������Ǥ⡢�롼���
- *       �����å����Ǥ���褦�ˤ�����
- *     o REJECT �롼��� DENY �롼��������ˤ�����
+ *     o オープンしていない UDP ポートにパケットを受けた場合に
+ *       PANIC してしまう問題を修正。
+ *     o 送信 message が複数の mblk から成る場合でも、ルールの
+ *       チェックができるようにした。
+ *     o REJECT ルールを DENY ルールと等価にした。
  *   2005/03/09
- *     o �롼��˴�Ϣ����ե��󥯥�������Ω������
- *     o �⥸�塼��� open ��˳��ݤ���� fwall ��¤�Τ� stream �Υ��ɥ쥹��
- *       ��Ǽ����褦�ˤ���Ʊ�� stream �ˣ��Ĥ� fwall �⥸�塼�뤬���������
- *       ���Ȥ�̵���褦�ˤ�����
- *     o Debug �����Ѥδؿ����ɲä�����
+ *     o ルールに関連するファンクションを独立させた
+ *     o モジュールの open 毎に確保される fwall 構造体に stream のアドレスを
+ *       格納するようにし、同一 stream に２つの fwall モジュールが挿入される
+ *       ことが無いようにした。
+ *     o Debug 出力用の関数を追加した。
  *   2005/03/10
- *     o �����󥹥ȥ꡼�ࡢ���åץ��ȥ꡼��Ȥ�ˡ�M_DATA ��å����������Ǥʤ�
- *       M_PROTO �˴ޤޤ��ǡ���(DL_UNITDATA_REQ, DL_UNITDATA_IND) ������å�
- *       �Ǥ���褦�ˤ�����(M_DATA �� NIC �ɥ饤�ФȤΥǡ����Τ��Ȥ�򤹤�
- *       �Τ� Sun �� NIC �ɥ饤�Ф����Τ褦��)
- *     o ����������å�����(mblk) ����� pullupmsg(9F)�ˤ�äơ��ǡ�������ޤȤᡢ
- *       ʣ���� mblk ��Ϣ�ʤäƤ�����Ǥ����ǡ������ǧ�Ǥ���褦�ˤ�����
+ *     o ダウンストリーム、アップストリームともに、M_DATA メッセージだけでなく
+ *       M_PROTO に含まれるデータ(DL_UNITDATA_REQ, DL_UNITDATA_IND) もチェック
+ *       できるようにした。(M_DATA で NIC ドライバとのデータのやりとりをする
+ *       のは Sun の NIC ドライバだけのよう。)
+ *     o 受信したメッセージ(mblk) を毎回 pullupmsg(9F)によって、データ部をまとめ、
+ *       複数の mblk が連なっている場合でも全データを確認できるようにした。
  *     
  **************************************************************/
 
-/* STREAM �ѥإå� */
+/* STREAM 用ヘッダ */
 #include <sys/modctl.h>
 #include <sys/types.h>
 #include <sys/param.h>
@@ -36,7 +64,7 @@
 #include <sys/ddi.h>
 #include <sys/sunddi.h>
 
-/* TCP/IP ��Ϣ�إå� */
+/* TCP/IP 関連ヘッダ */
 #include  <netinet/in.h>
 #include  <sys/types.h>
 #include  <sys/socket.h>
@@ -50,12 +78,12 @@
 #include  <netinet/udp.h>
 #include  <netinet/ip.h>
 
-/* fwall �⥸�塼���ѥإå� */
+/* fwall モジュール用ヘッダ */
 #include "fwall.h"
 
 /*
- * �⥸�塼��Υ������Х�ǡ��� �ǽ�Υ롼��ؤΥݥ��󥿤��Ǽ
- * ���Υǡ����ν񤭹��ߤ���¾Ū�˹Ԥ��ʤ���Фʤ�ʤ�
+ * モジュールのグローバルデータ 最初のルールへのポインタを格納
+ * このデータの書き込みは排他的に行われなければならない
  */
 fwall_t *fwall_head = NULL;
                                    
@@ -119,13 +147,13 @@ _fini(void)
 }
 
 /*
- * �⥸�塼��Υ����ץ�롼����
+ * モジュールのオープンルーチン
  */
 static int
 fwall_open (queue_t* q, dev_t *dev, int oflag, int sflag, cred_t *cred)
 {
     fwall_t *fwall, *fwp;
-    struct stdata *stream; /* ���� queue �� stream �Υݥ��� */
+    struct stdata *stream; /* この queue の stream のポインタ */
 
     if (sflag != MODOPEN){
         return EINVAL;
@@ -134,13 +162,13 @@ fwall_open (queue_t* q, dev_t *dev, int oflag, int sflag, cred_t *cred)
     stream = q->q_stream;
 
     /*
-     * fwall ��¤�ΤΥꥹ�Ȥ��椫�顢Ʊ�����ɥ쥹�� stream ����äƤ���
-     * ��Τ�̵�����ɤ���������å����롣�⤷����С�����ϣ��Ĥ�� fwall
-     * �⥸�塼�뤬 STREAM ����������褦�Ȥ��Ƥ��뤳�Ȥ��̣����Τǡ����顼
-     * ���֤���
-     * fwall �⥸�塼��� D_MTOCEXCL �ե饰�򤿤ƤƤ���Τǡ����� open(9E)
-     * �롼�������¾Ū��(PERMOD)�˥�����������롣���Τ��ᡢ�ʲ��ν����Ǥ�
-     * ���å��ϼ������ʤ���
+     * fwall 構造体のリストの中から、同じアドレスの stream を持っている
+     * ものが無いかどうかをチェックする。もしあれば、それは２つめの fwall
+     * モジュールが STREAM に挿入されようとしていることを意味するので、エラー
+     * を返す。
+     * fwall モジュールは D_MTOCEXCL フラグをたてているので、この open(9E)
+     * ルーチンは排他的に(PERMOD)にアクセスされる。そのため、以下の処理では
+     * ロックは取得しない。
      */
     for( fwp = fwall_head ; fwp != NULL ; fwp = fwp->next){
         if (fwp->stream == stream){
@@ -168,7 +196,7 @@ fwall_open (queue_t* q, dev_t *dev, int oflag, int sflag, cred_t *cred)
 }
 
 /*
- * �⥸�塼��Υ��������롼����
+ * モジュールのクローズルーチン
  */
 static int
 fwall_close (queue_t *q, int flag, int sflag, cred_t *cred)
@@ -179,9 +207,9 @@ fwall_close (queue_t *q, int flag, int sflag, cred_t *cred)
     q->q_ptr = WR(q)->q_ptr = NULL;
 
     /*
-     * fwall ��¤�ΤΥꥹ�Ȥ��椫�顢���� stream �Υ���ȥ��
-     * ������롣�����ץ�ξ���Ʊ�ͤˡ����ν����Τ���˥��å�
-     * ���������ɬ�פ�̵����
+     * fwall 構造体のリストの中から、この stream のエントリを
+     * 削除する。オープンの場合と同様に、この処理のためにロック
+     * を取得する必要は無い。
      */
     if(fwall_delete_from_list(fwall) < 0){
         kmem_free(fwall,sizeof(struct fwall));
@@ -194,10 +222,10 @@ fwall_close (queue_t *q, int flag, int sflag, cred_t *cred)
 
 /*************************************************************************
  * fwall_wput()
- * fwall �⥸�塼��� write put ��³��
+ * fwall モジュールの write put 手続き
  * 
- * STREAM �ξ��������夷�� message �ν�����Ԥ�
- * ����� ip �⥸�塼��� putnext() ����ƤФ�롣
+ * STREAM の上方ら到着した message の処理を行う
+ * これは ip モジュールの putnext() から呼ばれる。
  *************************************************************************/
 static int
 fwall_wput(queue_t *q, mblk_t *mp)
@@ -207,52 +235,52 @@ fwall_wput(queue_t *q, mblk_t *mp)
     
     switch(mp->b_datap->db_type){
         case M_DATA:
-            /* �̾�Υǡ�����å��������롼�������å����� */
+            /* 通常のデータメッセージ。ルールをチェックする */
             fwall_data_wput(q, mp);
             return(0);
         case M_PROTO:            
         case M_PCPROTO:
-            /* �ץ��ȥ����å�������DL_UNITDATA_REQ �β�ǽ���⤢�� */            
+            /* プロトコルメッセージ。DL_UNITDATA_REQ の可能性もある */            
             fwall_proto_wput(q, mp);
             return(0);
         case M_IOCTL:
             /*
-             * IOCTL �� message��fwalladm ����Υ롼������ꥳ�ޥ�ɤ�
-             * ���äƤ��뤫�⤷��ʤ����⤷��ä��鼡�Υɥ饤�Ф� put
+             * IOCTL の message。fwalladm からのルールの設定コマンドが
+             * 入っているかもしれない。もし違ったら次のドライバへ put
              */
             iocp = (struct iocblk *)mp->b_rptr;
             switch (iocp->ioc_cmd) {
                 case ADDRULE:
                 case INSERTRULE:
-                    /* b_cont �����äƤ���Τϥ��ޥ�ɰ��������ä��ǡ��� message �ΤϤ�*/
+                    /* b_cont に入っているのはコマンド引数が入ったデータ message のはず*/
                     mp2 = mp->b_cont;
                     if(!mp2 || mp2->b_datap->db_type != M_DATA){
                         /*
-                         * b_cont �� M_DATA message ���ޤޤ�Ƥ��ʤ���
-                         * M_IOCNAK(=�������) ���֤������顼ɽ�� 
+                         * b_cont に M_DATA message が含まれていない！
+                         * M_IOCNAK(=否定応答) を返し、エラー表示 
                          */
                         mp->b_datap->db_type = M_IOCNAK;
                         qreply(q, mp);
                         DEBUG_PRINT0(CE_CONT, "IOCTL message doesn't have M_DATA message");
                         return(0);
                     }
-                    /* �������Х�ǡ������ѹ�����Τǡ���¾�⡼�ɤ˥��åץ��졼�� */
+                    /* グローバルデータを変更するので、排他モードにアップグレード */
                     qwriter(q, mp, fwall_insert_rule, PERIM_OUTER);
                     return(0);
                 case DELRULE:
-                    /* b_cont �����äƤ���Τϥ��ޥ�ɰ��������ä��ǡ��� message �ΤϤ� */
+                    /* b_cont に入っているのはコマンド引数が入ったデータ message のはず */
                     mp2 = mp->b_cont;
                     if(!mp2 || mp2->b_datap->db_type != M_DATA){
                         /*
-                         * b_cont �� M_DATA message ���ޤޤ�Ƥ��ʤ���
-                         * M_IOCNAK(=�������) ���֤������顼ɽ��
+                         * b_cont に M_DATA message が含まれていない！
+                         * M_IOCNAK(=否定応答) を返し、エラー表示
                          */                             
                         mp->b_datap->db_type = M_IOCNAK;
                         qreply(q, mp);
                         DEBUG_PRINT0(CE_CONT, "IOCTL message doesn't have M_DATA message");
                         return(0);
                     }
-                    /* �������Х�ǡ������ѹ�����Τǡ���¾�⡼�ɤ˥��åץ��졼�� */
+                    /* グローバルデータを変更するので、排他モードにアップグレード */
                     qwriter(q, mp, fwall_delete_rule, PERIM_OUTER);
                     return(0);                    
                 case GETRULE:
@@ -260,15 +288,15 @@ fwall_wput(queue_t *q, mblk_t *mp)
                     return(0);
                     
                 default:
-                    /* fwall �⥸�塼��� IOCTL ���ޥ�ɤǤϤʤ� */
+                    /* fwall モジュールの IOCTL コマンドではない */
                     break;
             }
             break;
                     
         default:
             /*
-             * M_DATA �Ǥ� M_IOCTL �Ǥ�̵�� message��
-             * ���Τޤ޼��Υ⥸�塼��ʥɥ饤�Сˤ� put
+             * M_DATA でも M_IOCTL でも無い message。
+             * そのまま次のモジュール（ドライバ）へ put
              */
             break;
     }
@@ -278,10 +306,10 @@ fwall_wput(queue_t *q, mblk_t *mp)
 
 /**********************************************************************
  * fwall_rput()
- * fwall �⥸�塼��� read put ��³��
+ * fwall モジュールの read put 手続き
  * 
- * STREAM �β����������夷�� message �ν�����Ԥ�
- * ����ϥ��󥿡��ե������ɥ饤�Ф� putnext() ���ƤФ�롣
+ * STREAM の下方から到着した message の処理を行う
+ * これはインターフェースドライバの putnext() より呼ばれる。
  ***********************************************************************/
 static int
 fwall_rput(queue_t *q, mblk_t *mp)
@@ -290,15 +318,15 @@ fwall_rput(queue_t *q, mblk_t *mp)
     switch(mp->b_datap->db_type){
         case M_PROTO:            
         case M_PCPROTO:
-            /* �ץ��ȥ��� message��DL_UNITDATA_IND �β�ǽ���⤢�� */
+            /* プロトコル message。DL_UNITDATA_IND の可能性もある */
             fwall_proto_rput(q, mp);
             return(0);        
         case M_DATA:
-            /* �̾�Υǡ��� message */
+            /* 通常のデータ message */
             fwall_data_rput(q, mp);
             return(0);
         default:
-            /* �ǡ��� message �Ǥʤ������Υ⥸�塼���IP) �� put */
+            /* データ message でない。次のモジュール（IP) へ put */
             break;
     }
 
@@ -309,15 +337,15 @@ fwall_rput(queue_t *q, mblk_t *mp)
 /*****************************************************************************
  * fwall_add_to_list
  * 
- * fwall ��¤�ΤΥ�󥯥ꥹ�Ȥ˿����� fwall ��¤�Τ��ɲä��롣
- * �������Х�ǡ������ѹ����뤿��ˤϡ���¾�⡼�ɤǤʤ��ƤϤʤ�ʤ��Τ���
- * ���Υ롼�����ɬ�� fwall_open() ���餷���ƤФ�ʤ��Τǡ����ˤ��ʤ��Ƥ�����
+ * fwall 構造体のリンクリストに新しい fwall 構造体を追加する。
+ * グローバルデータを変更するためには、排他モードでなくてはならないのが、
+ * このルーチンは必ず fwall_open() からしか呼ばれないので、気にしなくていい。
  *
- *  ������
- *           fwall:  �ꥹ�Ȥ��ɲä��� fwall ��¤��
+ *  引数：
+ *           fwall:  リストに追加する fwall 構造体
  *
- * ����͡�
- *           ��� 0
+ * 戻り値：
+ *           常に 0
  *****************************************************************************/
 static int
 fwall_add_to_list(fwall_t *fwall)
@@ -325,7 +353,7 @@ fwall_add_to_list(fwall_t *fwall)
     fwall_t *fwp;
 
     if ((fwp = fwall_head) == NULL){
-        /* ���ֺǽ�Υ⥸�塼��Υ����ץ�� */
+        /* 一番最初のモジュールのオープンだ */
         fwall_head = fwall;
         fwall->next = NULL;
         return(0);
@@ -346,16 +374,16 @@ fwall_add_to_list(fwall_t *fwall)
 /*****************************************************************************
  * fwall_delete_from_list
  * 
- * fwall ��¤�ΤΥ�󥯥ꥹ�Ȥ��� fwall ��¤�Τ�Ϥ�����
- * �������Х�ǡ������ѹ����뤿��ˤϡ���¾�⡼�ɤǤʤ��ƤϤʤ�ʤ��Τ���
- * ���Υ롼�����ɬ�� fwall_close() ���餷���ƤФ�ʤ��Τǡ����ˤ��ʤ��Ƥ�����
+ * fwall 構造体のリンクリストから fwall 構造体をはずず。
+ * グローバルデータを変更するためには、排他モードでなくてはならないのが、
+ * このルーチンは必ず fwall_close() からしか呼ばれないので、気にしなくていい。
  *
- *  ������
- *           fwall: �ꥹ�Ȥ���Ϥ��� fwall ��¤��
+ *  引数：
+ *           fwall: リストからはずす fwall 構造体
  *           
- * ����͡�
- *           ������   : 0
- *           ���顼�� : -1
+ * 戻り値：
+ *           成功時   : 0
+ *           エラー時 : -1
  *****************************************************************************/
 static int
 fwall_delete_from_list(fwall_t *fwall)
@@ -364,8 +392,8 @@ fwall_delete_from_list(fwall_t *fwall)
 
     if ((fwp = fwall_head) == NULL){
         /*
-         * fwall_close ���ƤФ�Ƥ���Τ� fwall_head �� NULL ����
-         * �������ʤ��ʤϤ��Ρ˾�����
+         * fwall_close が呼ばれているのに fwall_head が NULL だ。
+         * あり得ない（はずの）状況。
          */
         cmn_err(CE_CONT, "fwall_delete_from_list: fwall_head is NULL\n");
         return(-1);
@@ -391,13 +419,13 @@ fwall_delete_from_list(fwall_t *fwall)
 /*****************************************************************************
  * bebug_print()
  *
- * �ǥХå������Ѵؿ�
+ * デバッグ出力用関数
  *
- *  ������
- *           level  :  ���顼�ο����١�cmn_err(9F) ��������������
- *           format :  ��å������ν��ϥե����ޥå�cmn_err(9F) ���������������
- * ����͡�
- *           �ʤ���
+ *  引数：
+ *           level  :  エラーの深刻度。cmn_err(9F) の第一引数に相当
+ *           format :  メッセージの出力フォーマットcmn_err(9F) の第二引数に相当
+ * 戻り値：
+ *           なし。
  *****************************************************************************/
 void
 debug_print(int level, char *format, ...)
@@ -414,27 +442,27 @@ debug_print(int level, char *format, ...)
 /*****************************************************************************
  * fwall_data_wput()
  * 
- * M_DATA ��å������Ѥ� write ������ put(9E) �롼����
+ * M_DATA メッセージ用の write サイド put(9E) ルーチン。
  *
- *  ������
- *           q : write �����ɤ� queue �Υݥ���
- *           mp: ����������å������֥��å��Υݥ���
+ *  引数：
+ *           q : write サイドの queue のポインタ
+ *           mp: 受信したメッセージブロックのポインタ
  * 
- * ����͡�
- *          ��� 0 
+ * 戻り値：
+ *          常に 0 
  *****************************************************************************/
 static int
 fwall_data_wput(queue_t *q, mblk_t *mp)
 {
-    struct ip     *ip = NULL;          /* IP �إå���¤��          */
-    mblk_t        *newmp = NULL;       /* ʣ���� mblk ��ʬ���줿 message ��ҤȤĤˤޤȤ᤿��� */
+    struct ip     *ip = NULL;          /* IP ヘッダ構造体          */
+    mblk_t        *newmp = NULL;       /* 複数の mblk に分かれた message をひとつにまとめたもの */
     int           len;
 
-    /* Ϣ�ʤä�ʣ���� mblk �� 1 �Ĥ� message �˥��ԡ����� */
+    /* 連なった複数の mblk を 1 つの message にコピーする */
     newmp = msgpullup(mp, -1);
 
     if (newmp == NULL){
-        /* msgpullup() �����Ԥ�����memory ��­�� */
+        /* msgpullup() が失敗した。memory 不足？ */
         DEBUG_PRINT0(CE_CONT, "fwall_data_wput: msgpullup failed\n");
         freemsg(mp);
         return(0);
@@ -443,20 +471,20 @@ fwall_data_wput(queue_t *q, mblk_t *mp)
     len = msgdsize(newmp);
 
     /*
-     * ���ԡ����� mblk �� b_rptr �� Ethernet �إå��ʤΤǡ�14 byte ���餷��
-     * IP �Υݥ��󥿤����롣
+     * コピーした mblk の b_rptr は Ethernet ヘッダなので、14 byte ずらして
+     * IP のポインタを得る。
      */    
     ip = (struct ip *)(newmp->b_rptr + 14);
     
     if (fwall_check_rule_ip(ip, len) == ALLOW){
-        /* ���Ĥ��줿�����Υ⥸�塼��� */        
+        /* 許可された。次のモジュールへ */        
         putnext(q, mp);        
     } else {
-        /* ���Ĥ���ʤ��ä�����å������� Free ���� */        
+        /* 許可されなかった。メッセージを Free する */        
         freemsg(mp);
     }
 
-    /* msgpullup() �ǥ��ԡ�������å�������⤦�פ�ʤ� */    
+    /* msgpullup() でコピーしたメッセージももう要らない */    
     freemsg(newmp);
     return(0);
 }
@@ -464,29 +492,29 @@ fwall_data_wput(queue_t *q, mblk_t *mp)
 /*****************************************************************************
  * fwall_proto_wput()
  * 
- * M_PCPROTO ����� M_PROTO ��å������Ѥ� write ������ put �롼����
- * IP ����Υǡ����� DL_UNITDATA_REQ �ץ�ߥƥ��֤Ȥ��Ƥ����ǽ���⤢�뤿�ᡢ
- * ���ξ���³���� M_DATA ��å������Τ˴ޤޤ�� IP �ǡ���������å����롣
+ * M_PCPROTO および M_PROTO メッセージ用の write サイド put ルーチン。
+ * IP からのデータは DL_UNITDATA_REQ プリミティブとしてくる可能性もあるため、
+ * その場合は続きの M_DATA メッセージのに含まれる IP データをチェックする。
  *
- *  ������
- *           q : write �����ɤ� queue �Υݥ���
- *           mp: ����������å������֥��å��Υݥ���
- * ����͡�
- *          ��� 0 
+ *  引数：
+ *           q : write サイドの queue のポインタ
+ *           mp: 受信したメッセージブロックのポインタ
+ * 戻り値：
+ *          常に 0 
  *****************************************************************************/
 static int
 fwall_proto_wput(queue_t *q, mblk_t *mp)
 {
-    struct ip   *ip = NULL;          /* IP �إå���¤��   */
-    mblk_t      *newmp = NULL;       /* Ĵ���Ѥΰ�� mblk */
+    struct ip   *ip = NULL;          /* IP ヘッダ構造体   */
+    mblk_t      *newmp = NULL;       /* 調査用の一時 mblk */
     t_uscalar_t *dl_primitive;
     int         len;
 
     dl_primitive = (t_uscalar_t *)mp->b_rptr;
 
     /*
-     * �⤷ DL_UNITDATA_REQ �ץ�ߥƥ��֤Ǥʤ���С��롼���
-     * �����å���ɬ�פʤ��ΤǼ��Υ⥸�塼��ʥɥ饤�Сˤ��Ϥ�
+     * もし DL_UNITDATA_REQ プリミティブでなければ、ルールの
+     * チェックは必要ないので次のモジュール（ドライバ）へ渡す
      */
     if(*dl_primitive != DL_UNITDATA_REQ){
         putnext(q, mp);
@@ -496,13 +524,13 @@ fwall_proto_wput(queue_t *q, mblk_t *mp)
     DEBUG_PRINT0(CE_CONT,"fwall_proto_wput: get DL_UNITDATA_REQ");
 
     /*
-     * ���� M_PROTO ��³��(b_cont)�� message �� IP �ǡ�����ޤ� M_DATA
-     * ��å������ΤϤ���Ϣ�ʤä�ʣ���� mblk �� 1 �Ĥ� message �˥��ԡ����� 
+     * この M_PROTO の続き(b_cont)の message は IP データを含む M_DATA
+     * メッセージのはず。連なった複数の mblk を 1 つの message にコピーする 
      */
     newmp = msgpullup(mp->b_cont, -1);
 
     if (newmp == NULL){
-        /* msgpullup() �����Ԥ�����memory ��­�� */
+        /* msgpullup() が失敗した。memory 不足？ */
         DEBUG_PRINT0(CE_CONT, "fwall_proto_wput: msgpullup failed\n");
         freemsg(mp);
         return(0);
@@ -511,19 +539,19 @@ fwall_proto_wput(queue_t *q, mblk_t *mp)
     len = msgdsize(newmp);
     
     /*
-     * ���ԡ����� mblk �� b_rptr �� IP �إå���
+     * コピーした mblk の b_rptr は IP ヘッダ。
      */
     ip = (struct ip *)newmp->b_rptr;
 
     if (fwall_check_rule_ip(ip, len) == ALLOW){
-        /* ���Ĥ��줿�����Υ⥸�塼��� */
+        /* 許可された。次のモジュールへ */
         putnext(q, mp);        
     } else {
-        /* ���Ĥ���ʤ��ä�����å������� Free ���� */
+        /* 許可されなかった。メッセージを Free する */
         freemsg(mp);
     }
 
-    /* msgpullup() �ǥ��ԡ�������å�������⤦�פ�ʤ� */
+    /* msgpullup() でコピーしたメッセージももう要らない */
     freemsg(newmp);
     return(0);
 }
@@ -531,27 +559,27 @@ fwall_proto_wput(queue_t *q, mblk_t *mp)
 /*****************************************************************************
  * fwall_data_rput()
  * 
- * M_DATA ��å������Ѥ� read ������ put(9E) �롼����
+ * M_DATA メッセージ用の read サイド put(9E) ルーチン。
  *
- *  ������
- *           q : read �����ɤ� queue �Υݥ���
- *           mp: ����������å������֥��å��Υݥ���
+ *  引数：
+ *           q : read サイドの queue のポインタ
+ *           mp: 受信したメッセージブロックのポインタ
  * 
- * ����͡�
- *          ��� 0 
+ * 戻り値：
+ *          常に 0 
  *****************************************************************************/
 static int
 fwall_data_rput(queue_t *q, mblk_t *mp)
 {
-    struct ip     *ip = NULL;          /* IP �إå���¤��          */    
+    struct ip     *ip = NULL;          /* IP ヘッダ構造体          */    
     mblk_t        *newmp = NULL;
     int           len;
 
-    /* Ϣ�ʤä�ʣ���� mblk �� 1 �Ĥ� message �˥��ԡ����� */
+    /* 連なった複数の mblk を 1 つの message にコピーする */
     newmp = msgpullup(mp, -1);
 
     if (newmp == NULL){
-        /* msgpullup() �����Ԥ�����memory ��­�� */
+        /* msgpullup() が失敗した。memory 不足？ */
         DEBUG_PRINT0(CE_CONT, "fwall_data_rput: msgpullup failed\n");
         freemsg(mp);
         return(0);
@@ -560,19 +588,19 @@ fwall_data_rput(queue_t *q, mblk_t *mp)
     len = msgdsize(newmp);
 
     /*
-     * ���ԡ����� mblk �� b_rptr �� IP �إå���
+     * コピーした mblk の b_rptr は IP ヘッダ。
      */
     ip = (struct ip *)newmp->b_rptr;
 
     if (fwall_check_rule_ip(ip, len) == ALLOW){
-        /* ���Ĥ��줿�����Υ⥸�塼��� */        
+        /* 許可された。次のモジュールへ */        
         putnext(q, mp);        
     } else {
-        /* ���Ĥ���ʤ��ä�����å������� Free ���� */        
+        /* 許可されなかった。メッセージを Free する */        
         freemsg(mp);
     }
 
-    /* msgpullup() �ǥ��ԡ�������å�������⤦�פ�ʤ� */    
+    /* msgpullup() でコピーしたメッセージももう要らない */    
     freemsg(newmp);
     return(0);
 }
@@ -580,21 +608,21 @@ fwall_data_rput(queue_t *q, mblk_t *mp)
 /*****************************************************************************
  * fwall_proto_rput()
  * 
- * M_PCPROTO ����� M_PROTO ��å������Ѥ� read ������ put �롼����
- * �ɥ饤�Ф���Υѥ��åȥǡ����� DL_UNITDATA_IND �ץ�ߥƥ��֤Ȥ��Ƥ���
- * ��ǽ���⤢�뤿�ᡢ���ξ���³���� M_DATA ��å������Τ˴ޤޤ�� IP
- * �ǡ���������å����롣
+ * M_PCPROTO および M_PROTO メッセージ用の read サイド put ルーチン。
+ * ドライバからのパケットデータが DL_UNITDATA_IND プリミティブとしてくる
+ * 可能性もあるため、その場合は続きの M_DATA メッセージのに含まれる IP
+ * データをチェックする。
  *
- *  ������
- *           q : read �����ɤ� queue �Υݥ���
- *           mp: ����������å������֥��å��Υݥ���
- * ����͡�
- *          ��� 0 
+ *  引数：
+ *           q : read サイドの queue のポインタ
+ *           mp: 受信したメッセージブロックのポインタ
+ * 戻り値：
+ *          常に 0 
  *****************************************************************************/
 static int
 fwall_proto_rput(queue_t *q, mblk_t *mp)
 {
-    struct ip     *ip = NULL;          /* IP �إå���¤�� */    
+    struct ip     *ip = NULL;          /* IP ヘッダ構造体 */    
     mblk_t        *newmp = NULL;                
     t_uscalar_t   *dl_primitive;
     int           len;
@@ -602,8 +630,8 @@ fwall_proto_rput(queue_t *q, mblk_t *mp)
     dl_primitive = (t_uscalar_t *)mp->b_rptr;
 
     /*
-     * �⤷ DL_UNITDATA_IND �ץ�ߥƥ��֤Ǥʤ���С��롼���
-     * �����å���ɬ�פʤ��ΤǼ��Υ⥸�塼���IP�ˤ��Ϥ�
+     * もし DL_UNITDATA_IND プリミティブでなければ、ルールの
+     * チェックは必要ないので次のモジュール（IP）へ渡す
      */
     if(*dl_primitive != DL_UNITDATA_IND){
         putnext(q, mp);
@@ -613,12 +641,12 @@ fwall_proto_rput(queue_t *q, mblk_t *mp)
     DEBUG_PRINT0(CE_CONT,"fwall_proto_rput: get DL_UNITDATA_IND\n");
 
     /*
-     * ���� M_PROTO ��³��(b_cont)�� mblk �� IP �ǡ�����ޤ� M_DATA
-     * ��å������ΤϤ���Ϣ�ʤä�ʣ���� mblk �� 1 �Ĥ� message �˥��ԡ����� 
+     * この M_PROTO の続き(b_cont)の mblk は IP データを含む M_DATA
+     * メッセージのはず。連なった複数の mblk を 1 つの message にコピーする 
      */
     newmp = msgpullup(mp->b_cont, -1);
     if (newmp == NULL){
-        /* msgpullup() �����Ԥ�����memory ��­�� */
+        /* msgpullup() が失敗した。memory 不足？ */
         DEBUG_PRINT0(CE_CONT, "fwall_proto_rput: msgpullup failed\n");
         freemsg(mp);
         return(0);
@@ -627,19 +655,19 @@ fwall_proto_rput(queue_t *q, mblk_t *mp)
     len = msgdsize(newmp);
     
     /*
-     * ���ԡ����� mblk �� b_rptr �� IP �إå���
+     * コピーした mblk の b_rptr は IP ヘッダ。
      */
     ip = (struct ip *)newmp->b_rptr;
 
     if (fwall_check_rule_ip(ip, len) == ALLOW){
-        /* ���Ĥ��줿�����Υ⥸�塼��� */        
+        /* 許可された。次のモジュールへ */        
         putnext(q, mp);        
     } else {
-        /* ���Ĥ���ʤ��ä�����å������� Free ���� */        
+        /* 許可されなかった。メッセージを Free する */        
         freemsg(mp);
     }
     
-    /* msgpullup() �ǥ��ԡ�������å�������⤦�פ�ʤ� */
+    /* msgpullup() でコピーしたメッセージももう要らない */
     freemsg(newmp);
     return(0);
 }

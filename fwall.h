@@ -1,68 +1,96 @@
 /*
- * fwall ¥â¥¸¥å¡¼¥ë¤È¡¢fwalladm ¥³¥Ş¥ó¥ÉÍÑ¤Î¶¦ÄÌ
- * ¥Ø¥Ã¥À¥Õ¥¡¥¤¥ë
+ * CDDL HEADER START
+ *
+ * The contents of this file are subject to the terms of the
+ * Common Development and Distribution License (the "License").
+ * You may not use this file except in compliance with the License.
+ *
+ * You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+ * or http://www.opensolaris.org/os/licensing.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ *
+ * When distributing Covered Code, include this CDDL HEADER in each
+ * file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+ * If applicable, add the following below this CDDL HEADER, with the
+ * fields enclosed by brackets "[]" replaced with your own identifying
+ * information: Portions Copyright [yyyy] [name of copyright owner]
+ *
+ * CDDL HEADER END
+ */
+/*
+ * Copyright (c) 1986, 2010, Oracle and/or its affiliates. All rights reserved.
+ */
+
+/*
+ * Copright (c) 2005-2010  Kazuyoshi Aizawa <admin2@whiteboard.ne.jp>
+ * All rights reserved.
+ */
+/*
+ * fwall ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã¨ã€fwalladm ã‚³ãƒãƒ³ãƒ‰ç”¨ã®å…±é€š
+ * ãƒ˜ãƒƒãƒ€ãƒ•ã‚¡ã‚¤ãƒ«
  *
  */
 
 #ifndef __FWALL_H
 #define __FWALL__H
 
-/* fwall ¥â¥¸¥å¡¼¥ëÍÑ¤Î STREAM ioctl ¥³¥Ş¥ó¥É*/
-#define ADDRULE     0xabc001    /* ¥ë¡¼¥ë¤ÎÄÉ²Ã */
-#define DELRULE     0xabc002    /* ¥ë¡¼¥ë¤Îºï½ü */
-#define GETRULE     0xabc003    /* ¥ë¡¼¥ë¤Î¼èÆÀ */
-#define INSERTRULE  0xabc004    /* ¥ë¡¼¥ë¤ÎÁŞÆş */
+/* fwall ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ç”¨ã® STREAM ioctl ã‚³ãƒãƒ³ãƒ‰*/
+#define ADDRULE     0xabc001    /* ãƒ«ãƒ¼ãƒ«ã®è¿½åŠ  */
+#define DELRULE     0xabc002    /* ãƒ«ãƒ¼ãƒ«ã®å‰Šé™¤ */
+#define GETRULE     0xabc003    /* ãƒ«ãƒ¼ãƒ«ã®å–å¾— */
+#define INSERTRULE  0xabc004    /* ãƒ«ãƒ¼ãƒ«ã®æŒ¿å…¥ */
 
-/* ¥ë¡¼¥ë¤Î¥¢¥¯¥·¥ç¥ó */
-#define ALLOW  0x00  /* ÄÌ²áµö²Ä */
-#define REJECT 0x01  /* µñÈİ */
-#define DENY   0x02  /* Ìµ»ë */
+/* ãƒ«ãƒ¼ãƒ«ã®ã‚¢ã‚¯ã‚·ãƒ§ãƒ³ */
+#define ALLOW  0x00  /* é€šéè¨±å¯ */
+#define REJECT 0x01  /* æ‹’å¦ */
+#define DENY   0x02  /* ç„¡è¦– */
 
-/* ¥ë¡¼¥ë¤Î¥¿¥¤¥× */
-#define PORTFILETER 0x01 /* ÄÌ¾ï¤Î¡¢¥¢¥É¥ì¥¹¡¦¥İ¡¼¥È¥Õ¥£¥ë¥¿¡¼¤Î¥ë¡¼¥ë */
-#define EXPRESSION  0x02 /* Ç¤°Õ¤Î¥Õ¥£¥ë¥¿¡¼¤Î¼°¤ò»ØÄê¤·¤¿¥ë¡¼¥ë */
+/* ãƒ«ãƒ¼ãƒ«ã®ã‚¿ã‚¤ãƒ— */
+#define PORTFILETER 0x01 /* é€šå¸¸ã®ã€ã‚¢ãƒ‰ãƒ¬ã‚¹ãƒ»ãƒãƒ¼ãƒˆãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã®ãƒ«ãƒ¼ãƒ« */
+#define EXPRESSION  0x02 /* ä»»æ„ã®ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼ã®å¼ã‚’æŒ‡å®šã—ãŸãƒ«ãƒ¼ãƒ« */
 
-/* ºÇÂç¥ë¡¼¥ë¿ô */
+/* æœ€å¤§ãƒ«ãƒ¼ãƒ«æ•° */
 #define MAXRULES  255
 
-/* ¸Ä¡¹¤Î¥ë¡¼¥ëÄêµÁÍÑ¤Î¹½Â¤ÂÎ*/
+/* å€‹ã€…ã®ãƒ«ãƒ¼ãƒ«å®šç¾©ç”¨ã®æ§‹é€ ä½“*/
 typedef struct fwall_rule {
-    uint8_t            rule_type;   /* ¥ë¡¼¥ë¤Î¥¿¥¤¥× */    
-    struct in_addr     src_addr;    /* Á÷¿®¸µ¥¢¥É¥ì¥¹¡£PORTFILTER ¤Ç»ÈÍÑ*/
-    struct in_addr     dst_addr;    /* ¤¢¤ÆÀè¥¢¥É¥ì¥¹¡£PORTFILTER ¤Ç»ÈÍÑ */
-    uint16_t           src_port;    /* Á÷¿®¸µ¥İ¡¼¥È¡£PORTFILTER ¤Ç»ÈÍÑ */
-    uint16_t           dst_port;    /* ¤¢¤ÆÀè¥İ¡¼¥È¡£PORTFILTER ¤Ç»ÈÍÑ */
-    uint8_t            proto;       /* ¥×¥í¥È¥³¥ë¡£PORTFILTER ¤Ç»ÈÍÑ */
-    uint32_t           offset;      /* ¥Õ¥£¥ë¥¿¡¼³«»Ï°ÌÃÖ¡£ EXPRESSION ¤Ç»ÈÍÑ*/
-    uint32_t           length;      /* ¥Õ¥£¡¼¥ë¥ÉÄ¹¡£EXPRESSION ¤Ç»ÈÍÑ */
-    uint32_t           value;       /* Èæ³Ó¤¹¤ëÃÍ¡£ EXPRESSION ¤Ç»ÈÍÑ */
-    uint8_t            action;      /* ÄÌ²á¡¢µñÈİ¡¢Ìµ»ë¡£ */
-    uint8_t            number;      /* ¥ë¡¼¥ëÈÖ¹æ¡£fwalladm ¥³¥Ş¥ó¥É¤¬»ÈÍÑ*/
-    struct fwall_rule  *next_rule ; /* ¼¡¤Î¥ë¡¼¥ë¤Î¥İ¥¤¥ó¥¿¡£fwall ¥â¥¸¥å¡¼¥ë¤¬»ÈÍÑ */
+    uint8_t            rule_type;   /* ãƒ«ãƒ¼ãƒ«ã®ã‚¿ã‚¤ãƒ— */    
+    struct in_addr     src_addr;    /* é€ä¿¡å…ƒã‚¢ãƒ‰ãƒ¬ã‚¹ã€‚PORTFILTER ã§ä½¿ç”¨*/
+    struct in_addr     dst_addr;    /* ã‚ã¦å…ˆã‚¢ãƒ‰ãƒ¬ã‚¹ã€‚PORTFILTER ã§ä½¿ç”¨ */
+    uint16_t           src_port;    /* é€ä¿¡å…ƒãƒãƒ¼ãƒˆã€‚PORTFILTER ã§ä½¿ç”¨ */
+    uint16_t           dst_port;    /* ã‚ã¦å…ˆãƒãƒ¼ãƒˆã€‚PORTFILTER ã§ä½¿ç”¨ */
+    uint8_t            proto;       /* ãƒ—ãƒ­ãƒˆã‚³ãƒ«ã€‚PORTFILTER ã§ä½¿ç”¨ */
+    uint32_t           offset;      /* ãƒ•ã‚£ãƒ«ã‚¿ãƒ¼é–‹å§‹ä½ç½®ã€‚ EXPRESSION ã§ä½¿ç”¨*/
+    uint32_t           length;      /* ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰é•·ã€‚EXPRESSION ã§ä½¿ç”¨ */
+    uint32_t           value;       /* æ¯”è¼ƒã™ã‚‹å€¤ã€‚ EXPRESSION ã§ä½¿ç”¨ */
+    uint8_t            action;      /* é€šéã€æ‹’å¦ã€ç„¡è¦–ã€‚ */
+    uint8_t            number;      /* ãƒ«ãƒ¼ãƒ«ç•ªå·ã€‚fwalladm ã‚³ãƒãƒ³ãƒ‰ãŒä½¿ç”¨*/
+    struct fwall_rule  *next_rule ; /* æ¬¡ã®ãƒ«ãƒ¼ãƒ«ã®ãƒã‚¤ãƒ³ã‚¿ã€‚fwall ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ãŒä½¿ç”¨ */
     
 }fwall_rule_t;
 
 /*
- * ¥â¥¸¥å¡¼¥ëËè¤Î¥×¥é¥¤¥Ù¡¼¥È¥Ç¡¼¥¿¹½Â¤ÂÎ
- * ³Æ¥â¥¸¥å¡¼¥ë¥¤¥ó¥¹¥¿¥ó¥¹¤¬¤³¤³¤Ë»ı¤Ä¥×¥é¥¤¥Ù¡¼¥È¥Ç¡¼¥¿¤ò³ÊÇ¼¡£
+ * ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«æ¯ã®ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ‡ãƒ¼ã‚¿æ§‹é€ ä½“
+ * å„ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ãŒã“ã“ã«æŒã¤ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ‡ãƒ¼ã‚¿ã‚’æ ¼ç´ã€‚
  */ 
 typedef struct fwall
 {
     struct in_addr *addr;   /* Not used now ... */
-    struct stdata  *stream; /* stream ¤Î¥İ¥¤¥ó¥¿ */
-    struct fwall *next;     /* ¼¡¤Î fwall ¹½Â¤ÂÎ¤Ø¤Î¥İ¥¤¥ó¥¿ */
+    struct stdata  *stream; /* stream ã®ãƒã‚¤ãƒ³ã‚¿ */
+    struct fwall *next;     /* æ¬¡ã® fwall æ§‹é€ ä½“ã¸ã®ãƒã‚¤ãƒ³ã‚¿ */
 } fwall_t;
 
 #ifdef _KERNEL
-#define MAX_MSG 256  /* SYSLOG ¤Ë½ĞÎÏ¤¹¤ë¥á¥Ã¥»¡¼¥¸¤ÎºÇÂçÊ¸»ú¿ô */
+#define MAX_MSG 256  /* SYSLOG ã«å‡ºåŠ›ã™ã‚‹ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã®æœ€å¤§æ–‡å­—æ•° */
 /*
- * DEBUG ¤ò define ¤¹¤ë¤È¡¢DEBUG ¥â¡¼¥É ON ¤Ë¤Ê¤ë 
+ * DEBUG ã‚’ define ã™ã‚‹ã¨ã€DEBUG ãƒ¢ãƒ¼ãƒ‰ ON ã«ãªã‚‹ 
 #define DEBUG
  */
 /*
- * DEBUG ÍÑ¤Î½ĞÎÏ¥ë¡¼¥Á¥ó
- * cmn_err(9F) ¤Ë¤Æ syslog ¥á¥Ã¥»¡¼¥¸¤ò½ĞÎÏ¤¹¤ë¡£
- * DEBUG ¤ò on ¤Ë¤¹¤ë¤È¡¢¤«¤Ê¤ê¤Î¥Ç¥Ğ¥Ã¥°¥á¥Ã¥»¡¼¥¸¤¬µ­Ï¿¤µ¤ì¤ë¡£
+ * DEBUG ç”¨ã®å‡ºåŠ›ãƒ«ãƒ¼ãƒãƒ³
+ * cmn_err(9F) ã«ã¦ syslog ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å‡ºåŠ›ã™ã‚‹ã€‚
+ * DEBUG ã‚’ on ã«ã™ã‚‹ã¨ã€ã‹ãªã‚Šã®ãƒ‡ãƒãƒƒã‚°ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ãŒè¨˜éŒ²ã•ã‚Œã‚‹ã€‚
  */
 #ifdef DEBUG
 #define  DEBUG_PRINT0(level, format) debug_print(level, format)

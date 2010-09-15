@@ -1,0 +1,7 @@
+This program is only tested on following platform
+
+ SPARC Solaris 9  (64bit)
+ SPARC Solaris 10 (64bit)
+
+This program is not tested well. It might cause system panic or hang.
+DON'T install this on production system. Use this at your own risk.

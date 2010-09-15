@@ -1,13 +1,39 @@
+/*
+ * Copyright (C) 2005-2010 Kazuyoshi Aizawa. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 /**********************************************************
  * fwalladm.c
- * �ʰץѥ��åȥե��륿���Ǥ��� fwall �⥸�塼��δ�����
- * ���ޥ�ɡ��롼����ɲá��ѹ���Ԥ���
+ * 簡易パケットフィルターである fwall モジュールの管理用
+ * コマンド。ルールの追加、変更を行う。
  *
  *   Usage: fwalladm
  *
- *   ����̵��
+ *   引数無し
  *
- *   �ץ���ץȤΥ��ޥ��
+ *   プロンプトのコマンド
  *
  *     insert rule <rule number> <protocol> <src port> <dest port> <src address> <destion address> <action>
  *     add rule <protocol> <src port> <dest port> <src address> <dest address> <action>
@@ -17,17 +43,17 @@
  *     delete interface <interface>
  *     list interface
  *
- *           insert rule      : �������롼������Υ롼���ֹ���ɲ�
- *           add rule         : �������롼���Ǹ�Υ롼��Ȥ����ɲ�
- *           delete rule      : ���ꤵ�줿��¸�Υ롼�����
- *           list rule        : �������ꤵ��Ƥ���롼���ɽ��
- *           add interface    : �ѥ��åȤ�Ĵ����Ԥ����󥿡��ե��������ɲ�
- *           delete interface : �ѥ��åȤ�Ĵ����Ԥ����󥿡��ե���������
- *           list interface   : �����оݤȤʤäƤ��륤�󥿡��ե����������
+ *           insert rule      : 新しいルールを指定のルール番号で追加
+ *           add rule         : 新しいルールを最後のルールとして追加
+ *           delete rule      : 指定された既存のルールを削除
+ *           list rule        : 現在設定されているルールを表示
+ *           add interface    : パケットの調査を行うインターフェースを追加
+ *           delete interface : パケットの調査を行うインターフェースを削除
+ *           list interface   : 現在対象となっているインターフェースを報告
  *
- *  �ѹ�����
+ *  変更履歴
  *   2005/03/04
- *    o �ץ���ץȤˤ� CTL+D �ˤ� fwalladm ���ޥ�ɤ�λ�Ǥ���褦�ˤ����� 
+ *    o プロンプトにて CTL+D にて fwalladm コマンドを終了できるようにした。 
  *
  ***********************************************************/
 
@@ -66,22 +92,22 @@ main(int argc, char *argv[])
     char parameter[BUFSIZE * 8];
 
 
-    /* fwall �⥸�塼��� PUSH ���뤿��� ip �ǥХ����� open   */
-    /* ���Υץ�����फ�������� IOCTL message ��ȿ������     */
-    /* �Τ� fwall �⥸�塼������ʤΤǡ�open ����ǥХ����ϡ�  */
-    /* �֤ä��㤱 STREAM �ǥХ����Ǥ���С�/dev/le �Ǥ�        */
-    /* /dev/tcp �Ǥ�ʤ�Ǥ�褤                               */
+    /* fwall モジュールを PUSH するために ip デバイスを open   */
+    /* このプログラムから送られる IOCTL message に反応する     */
+    /* のは fwall モジュールだけなので、open するデバイスは、  */
+    /* ぶっちゃけ STREAM デバイスであれば、/dev/le でも        */
+    /* /dev/tcp でもなんでもよい                               */
     fd = open("/dev/ip",O_RDONLY,0666);
     if ( fd < 0)
         perror("open /dev/ip ");
 
-    /* open ���� STREAM �� fwall �⥸�塼�������(PUSH)        */
+    /* open した STREAM に fwall モジュールを挿入(PUSH)        */
     if( ioctl(fd,I_PUSH,"fwall") < 0){
         perror("I_PUSH");
         exit(0);
     }
 
-    /* �ץ���ץȤ��饳�ޥ�ɤ�����դ��� */
+    /* プロンプトからコマンドを受け付ける */
     for(;;) {
 
         bzero(command, sizeof(command));
@@ -106,17 +132,17 @@ main(int argc, char *argv[])
 
 /*****************************************************************************
  * strioctl()
- * STREAM �ǥХ����� ioctl()
+ * STREAM デバイス用 ioctl()
  *
- *  ������
- *           fd: STERAM �ǥХ����� File Descriptor
- *          cmd: IOCTL ���ޥ��
- *       timout: �����ॢ������
- *          len: M_IOCTL ��å������Ȥ���STREAM ����������ǡ���
- *           dp: �ǡ���Ĺ
- * ����͡�
- *          ������ STREAM ������������ǡ����Υǡ���Ĺ
- *          ���ԡ� �ޥ��ʥ���
+ *  引数：
+ *           fd: STERAM デバイスの File Descriptor
+ *          cmd: IOCTL コマンド
+ *       timout: タイムアウト値
+ *          len: M_IOCTL メッセージとしてSTREAM に送信するデータ
+ *           dp: データ長
+ * 戻り値：
+ *          成功： STREAM から受信したデータのデータ長
+ *          失敗： マイナス値
  *
  *****************************************************************************/
 int
@@ -144,14 +170,14 @@ char    *dp;
     
 /*****************************************************************************
  * getaddr()
- * �桼������Ϳ����줿�ۥ���̾�ʤޤ���IP���ɥ쥹�ˤ��� in_addr ��¤�Τ�����
+ * ユーザから与えられたホスト名（またはIPアドレス）から in_addr 構造体を得る
  *
- *  ������
- *           name : �ۥ���̾���ޤ��� IP ���ɥ쥹
+ *  引数：
+ *           name : ホスト名、または IP アドレス
  *
- * ����͡�
- *          ������ in_addr ��¤�ΤΥݥ���
- *          ���ԡ� NULL
+ * 戻り値：
+ *          成功： in_addr 構造体のポインタ
+ *          失敗： NULL
  *****************************************************************************/
 struct in_addr
 *getaddr(char *name) {
@@ -167,7 +193,7 @@ struct in_addr
 
 /************************************************************
  * print_usage()
- * Usage ��ɽ��
+ * Usage の表示
  ************************************************************/
 void
 print_usage(char **argv)
@@ -177,7 +203,7 @@ print_usage(char **argv)
 }
 /************************************************************
  * print_command_usage()
- * prompt �� usage ��ɽ��
+ * prompt の usage の表示
  ************************************************************/
 void
 print_command_usage()
@@ -196,17 +222,17 @@ print_command_usage()
 
 /************************************************************
  * parse_command()
- * �ץ���ץȤ���Υ��ޥ�ɤβ���
- * fwall �⥸�塼��ؤ� IOCTL ��å�����������
+ * プロンプトからのコマンドの解析
+ * fwall モジュールへの IOCTL メッセージの送信
  *
- *  ������
- *           fd        : STERAM �ǥХ���(/dev/ip) �� File Descriptor
- *           command   : ���ޥ��(add, insert, delete, list)
- *           type      : ���ޥ�ɤμ¹��о�(rule, interface)
- *           parameter : ���ޥ�ɤΥѥ�᡼��(IP ���ɥ쥹�����ġ��Ե�����)
+ *  引数：
+ *           fd        : STERAM デバイス(/dev/ip) の File Descriptor
+ *           command   : コマンド(add, insert, delete, list)
+ *           type      : コマンドの実行対象(rule, interface)
+ *           parameter : コマンドのパラメータ(IP アドレス、許可・不許可等)
  *
- * ����͡�
- *          ̵��
+ * 戻り値：
+ *          無し
  ************************************************************/
 void
 parse_command(int fd, char *command, char *type, char *parameter)
@@ -221,7 +247,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
     char interface[BUFSIZE];
     char strings[BUFSIZE *2];
 
-    /* ����Υ롼���ֹ�ˡ����롼�������*/
+    /* 指定のルール番号に、新ルールを挿入*/
     if(strcmp(command, "insert") == 0){
         if(strcmp(type, "rule") == 0){
             params = sscanf( parameter, "%s %s %s %s %s %s %s",
@@ -243,7 +269,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                         goto err;
                     }
                     
-                    /* �ݡ��ȤȤ��ƥ磻��ɥ����ɤ����ꤵ�줿�� 0 �Ȥߤʤ�*/
+                    /* ポートとしてワイルドカードが指定されたら 0 とみなす*/
                     if(strcmp(src_port, "*") == 0)
                         sprintf(src_port,"0");
                     if(strcmp(dst_port, "*") == 0)
@@ -251,7 +277,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                     rule.src_port = atoi(src_port);
                     rule.dst_port = atoi(dst_port);
 
-                    /* ���ɥ쥹�Ȥ��ƥ磻��ɥ����ɤ����ꤵ�줿�� 0.0.0.0 �Ȥߤʤ�*/
+                    /* アドレスとしてワイルドカードが指定されたら 0.0.0.0 とみなす*/
                     if(strcmp(src_addr, "*") == 0)
                         sprintf(src_addr,"0");
                     if(strcmp(dst_addr, "*") == 0)
@@ -281,13 +307,13 @@ parse_command(int fd, char *command, char *type, char *parameter)
                     return;
                 default:
                     break;
-            }/* switch() �ν����*/
+            }/* switch() の終わり*/
             goto err;
         } /* if type == rule  */
         goto err;
     } /* if command == insert */
 
-    /* ���롼�����ֺǸ�Υ롼��Ȥ����ɲ�*/
+    /* 新ルールを一番最後のルールとして追加*/
     if(strcmp(command, "add") == 0){
         if(strcmp(type, "rule") == 0){
             params = sscanf( parameter, "%s %s %s %s %s %s",
@@ -308,7 +334,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                         goto err;
                     }
 
-                    /* �ݡ��ȤȤ��Ƥƥ磻��ɥ����ɤ����ꤵ�줿�� 0 �Ȥߤʤ�*/
+                    /* ポートとしててワイルドカードが指定されたら 0 とみなす*/
                     if(strcmp(src_port, "*") == 0)
                         sprintf(src_port,"0");                        
                     if(strcmp(dst_port, "*") == 0)
@@ -316,7 +342,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                     rule.src_port = atoi(src_port);                        
                     rule.dst_port = atoi(dst_port);
 
-                    /* ���ɥ쥹�Ȥ��ƥ磻��ɥ����ɤ����ꤵ�줿�� 0.0.0.0 �Ȥߤʤ�*/
+                    /* アドレスとしてワイルドカードが指定されたら 0.0.0.0 とみなす*/
                     if(strcmp(src_addr, "*") == 0)
                         sprintf(src_addr,"0");
                     if(strcmp(dst_addr, "*") == 0)
@@ -346,7 +372,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                     return;
                 default:
                     break;
-            }/* switch() �ν����*/
+            }/* switch() の終わり*/
             goto err;            
         } /* if type == rule  */
         
@@ -365,7 +391,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
         goto err;
     } /* if command == add */    
 
-    /* �������ꤵ��Ƥ���롼���ɽ��*/
+    /* 現在設定されているルールを表示*/
     if(strcmp(command, "list") == 0){
         if(strcmp(type, "rule") == 0){
             for(n = 0 ;; n++){
@@ -373,7 +399,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                 rule.number = n;
                 if (strioctl(fd, GETRULE, -1, sizeof(fwall_rule_t), (char *)&rule) < 0) {
                     if(errno == EINVAL)
-                        /* EINVAL ���֤ä��Ȥ������ȤϤ⤦����ʾ�Υ롼���̵��*/
+                        /* EINVAL が返ったということはもうこれ以上のルールは無い*/
                         break;
                     else
                         perror("strioctl : GETRULE");                    
@@ -419,7 +445,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
                         printf("Unknown action(%d)\n",rule.action);
                         break;
                 }
-            }/* for �롼�� */
+            }/* for ループ */
             return;
         }/* if type == rule */
         
@@ -431,7 +457,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
         goto err;
     }/* if command == list*/
 
-    /* ����Υ롼���ֹ�Υ롼�����*/
+    /* 指定のルール番号のルールを削除*/
     if(strcmp(command, "delete") == 0){
         if(strcmp(type, "rule") == 0){
             params = sscanf( parameter, "%s", number);
@@ -461,7 +487,7 @@ parse_command(int fd, char *command, char *type, char *parameter)
         }/* if type = interface */        
     }
 
-    /* �ץ���ץȾ�ǡ�quit��exit ������դ�����ץ�����ཪλ*/
+    /* プロンプト上で、quit、exit を受け付けたらプログラム終了*/
     if(strcmp(command, "quit") == 0 || strcmp(command, "exit") == 0 )
         exit(0);
   err:
